@@ -26,6 +26,7 @@ const shuffleArray = (array: SpellingWord[]) => {
 
 const beeLevels = [Difficulty.ONE_BEE, Difficulty.TWO_BEE, Difficulty.THREE_BEE];
 const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
+const logoUrl = "https://juniorspellergh.com/wp-content/uploads/2024/01/3d-junior-speller-logo-2048x1172.png";
 
 const getWordId = (word: SpellingWord) => `${word.difficulty}:${word.word.toLowerCase()}`;
 
@@ -34,6 +35,7 @@ function App() {
   const [hasConsent, setHasConsent] = useState(false);
   const [initialIndex, setInitialIndex] = useState(0);
   const [currentView, setCurrentView] = useState<ViewState>('GAME');
+  const [darkMode, setDarkMode] = useState(false);
   const [sessionConfig, setSessionConfig] = useState<SessionConfig>({ 
     difficulty: Difficulty.ONE_BEE, 
     letter: null 
@@ -51,8 +53,29 @@ function App() {
         setSolvedWordIds(new Set(JSON.parse(cachedSolved)));
       } catch (e) { console.error(e); }
     }
+
+    const cachedTheme = localStorage.getItem('js_gh_theme');
+    if (cachedTheme === 'dark') {
+      setDarkMode(true);
+      document.documentElement.classList.add('dark');
+    }
+
     setLoading(false);
   }, []);
+
+  const toggleDarkMode = () => {
+    setDarkMode(prev => {
+      const next = !prev;
+      if (next) {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('js_gh_theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('js_gh_theme', 'light');
+      }
+      return next;
+    });
+  };
 
   const handleAcceptConsent = () => {
     setHasConsent(true);
@@ -73,7 +96,6 @@ function App() {
       words = words.filter(w => w.word.toLowerCase().startsWith(letter.toLowerCase()));
     }
 
-    // Default to alphabetical for specific filters, shuffle for ALL
     if (difficulty === 'ALL' && !letter) {
       words = shuffleArray(words);
     } else {
@@ -104,10 +126,15 @@ function App() {
   if (loading) return null;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-slate-900">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 flex flex-col font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
       {!hasConsent && <LegalModal onAccept={handleAcceptConsent} />}
       
-      <Header currentView={currentView} onViewChange={setCurrentView} />
+      <Header 
+        currentView={currentView} 
+        onViewChange={setCurrentView} 
+        darkMode={darkMode}
+        onToggleDarkMode={toggleDarkMode}
+      />
       
       <main className="flex-grow flex flex-col items-center justify-start py-6 px-4 w-full max-w-4xl mx-auto overflow-x-hidden">
         
@@ -118,15 +145,15 @@ function App() {
                onClick={() => setSessionConfig({ difficulty: 'ALL', letter: null })}
                className={`flex items-center gap-3 px-6 py-4 font-black text-sm transition-all rounded-2xl ${
                  sessionConfig.difficulty === 'ALL' && !sessionConfig.letter
-                   ? 'bg-[#003366] text-[#FFD700] shadow-xl'
-                   : 'bg-white text-slate-600 border-2 border-slate-100 shadow-sm'
+                   ? 'bg-[#003366] text-[#FFD700] shadow-xl dark:shadow-[#FFD700]/5'
+                   : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-2 border-slate-100 dark:border-slate-800 shadow-sm'
                }`}
              >
                <Shuffle className="w-5 h-5" />
                <span className="uppercase tracking-[0.1em]">Grand Finale Mix</span>
              </button>
 
-             <div className="bg-white border-2 border-slate-100 p-2 rounded-2xl flex gap-2">
+             <div className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 p-2 rounded-2xl flex gap-2">
                 {beeLevels.map(level => (
                   <button
                     key={level}
@@ -134,7 +161,7 @@ function App() {
                     className={`flex-1 flex flex-col items-center justify-center p-2 font-black text-[9px] transition-all rounded-xl border-2 ${
                       sessionConfig.difficulty === level
                         ? 'bg-[#003366] text-[#FFD700] border-[#003366]'
-                        : 'bg-slate-50 text-slate-400 border-transparent hover:border-slate-200'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-transparent hover:border-slate-200 dark:hover:border-slate-700'
                     }`}
                   >
                     <Hexagon className={`w-4 h-4 mb-1 ${sessionConfig.difficulty === level ? 'fill-[#FFD700]' : ''}`} />
@@ -144,12 +171,12 @@ function App() {
              </div>
           </div>
 
-          <div className="bg-white p-3 rounded-2xl shadow-sm border-2 border-slate-100">
+          <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl shadow-sm border-2 border-slate-100 dark:border-slate-800">
              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
                 <button
                   onClick={() => setSessionConfig(prev => ({ ...prev, letter: null }))}
                   className={`px-4 py-2 text-[10px] font-black shrink-0 rounded-full border-2 transition-all uppercase tracking-widest ${
-                    !sessionConfig.letter ? 'bg-[#FFD700] border-[#003366] text-[#003366]' : 'bg-slate-50 border-transparent text-slate-400'
+                    !sessionConfig.letter ? 'bg-[#FFD700] border-[#003366] text-[#003366]' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400 dark:text-slate-500'
                   }`}
                 >
                   All A-Z
@@ -159,7 +186,7 @@ function App() {
                     key={letter}
                     onClick={() => setSessionConfig(prev => ({ ...prev, letter }))}
                     className={`h-10 w-10 flex items-center justify-center text-xs font-black shrink-0 rounded-full border-2 transition-all ${
-                      sessionConfig.letter === letter ? 'bg-[#FFD700] border-[#003366] text-[#003366] scale-110' : 'bg-slate-50 border-transparent text-slate-400'
+                      sessionConfig.letter === letter ? 'bg-[#FFD700] border-[#003366] text-[#003366] scale-110' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400 dark:text-slate-500'
                     }`}
                   >
                     {letter}
@@ -180,10 +207,10 @@ function App() {
                   onWordSolved={handleWordSolved}
                />
              ) : (
-               <div className="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed border-slate-200 w-full">
-                  <Hexagon className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+               <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-800 w-full">
+                  <Hexagon className="w-12 h-12 text-slate-200 dark:text-slate-800 mx-auto mb-4" />
                   <p className="font-black text-slate-400 uppercase tracking-widest text-sm">No Words Found</p>
-                  <button onClick={() => setSessionConfig(p => ({...p, letter: null}))} className="mt-4 text-[#003366] font-black text-xs uppercase tracking-widest underline">Reset Filter</button>
+                  <button onClick={() => setSessionConfig(p => ({...p, letter: null}))} className="mt-4 text-[#003366] dark:text-blue-400 font-black text-xs uppercase tracking-widest underline">Reset Filter</button>
                </div>
              )}
           </div>
@@ -198,27 +225,23 @@ function App() {
         )}
       </main>
       
-      <footer className="bg-[#003366] text-white py-12 text-center mt-auto border-t-[10px] border-[#FFD700]">
+      <footer className="bg-[#003366] dark:bg-slate-950 text-white py-12 text-center mt-auto border-t-[10px] border-[#FFD700]">
         <div className="max-w-4xl mx-auto px-6 flex flex-col items-center">
           <img 
-            src="./logo.png" 
+            src={logoUrl} 
             alt="Junior Speller Logo" 
-            className="h-20 w-auto mb-6 brightness-0 invert opacity-90"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = "https://juniorspellergh.com/wp-content/uploads/2021/04/Junior-Speller-Logo-e1619616056586.png";
-              (e.target as HTMLImageElement).className = "h-20 w-auto mb-6 brightness-0 invert opacity-50";
-            }}
+            className="h-24 w-auto mb-6"
           />
           <p className="text-[#FFD700] text-[10px] font-black uppercase tracking-[0.5em] mb-8">Learn Earn and Spell like a Champion</p>
           
           <button 
             onClick={resetAllProgress}
-            className="text-[9px] font-black text-blue-300 hover:text-white transition-colors uppercase tracking-[0.3em] flex items-center gap-2 border border-blue-400/20 px-4 py-2 rounded-full"
+            className="text-[9px] font-black text-blue-300 dark:text-slate-500 hover:text-white transition-colors uppercase tracking-[0.3em] flex items-center gap-2 border border-blue-400/20 dark:border-slate-800 px-4 py-2 rounded-full"
           >
             <Trash2 className="w-3 h-3" /> Clear Cached Progress
           </button>
           
-          <p className="text-blue-400/40 text-[9px] mt-10 uppercase tracking-[0.2em] font-bold italic">
+          <p className="text-blue-400/40 dark:text-slate-700 text-[9px] mt-10 uppercase tracking-[0.2em] font-bold italic">
             Official Junior Speller GH Digital Platform
           </p>
         </div>
