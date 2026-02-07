@@ -1,0 +1,7 @@
+{
+  "name": "Scripps Spelling Bee",
+  "description": "The official companion study tool for the Scripps National Spelling Bee, featuring One Bee, Two Bee, and Three Bee words from the 2026 Words of the Champions.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
