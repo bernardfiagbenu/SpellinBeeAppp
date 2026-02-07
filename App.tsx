@@ -35,7 +35,10 @@ function App() {
   const [hasConsent, setHasConsent] = useState(false);
   const [initialIndex, setInitialIndex] = useState(0);
   const [currentView, setCurrentView] = useState<ViewState>('GAME');
+  
+  // Default to light mode (false)
   const [darkMode, setDarkMode] = useState(false);
+  
   const [sessionConfig, setSessionConfig] = useState<SessionConfig>({ 
     difficulty: Difficulty.ONE_BEE, 
     letter: null 
@@ -43,6 +46,7 @@ function App() {
   const [activeWordList, setActiveWordList] = useState<SpellingWord[]>([]);
   const [solvedWordIds, setSolvedWordIds] = useState<Set<string>>(new Set());
 
+  // Initial Load: Check preferences
   useEffect(() => {
     const cachedConsent = localStorage.getItem('js_gh_consent_accepted');
     if (cachedConsent === 'true') setHasConsent(true);
@@ -54,25 +58,28 @@ function App() {
       } catch (e) { console.error(e); }
     }
 
+    // Explicitly check for 'dark' theme. If null or 'light', stays false.
     const cachedTheme = localStorage.getItem('js_gh_theme');
     if (cachedTheme === 'dark') {
       setDarkMode(true);
-      document.documentElement.classList.add('dark');
     }
 
     setLoading(false);
   }, []);
 
+  // Sync DOM with darkMode state
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
   const toggleDarkMode = () => {
     setDarkMode(prev => {
       const next = !prev;
-      if (next) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('js_gh_theme', 'dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('js_gh_theme', 'light');
-      }
+      localStorage.setItem('js_gh_theme', next ? 'dark' : 'light');
       return next;
     });
   };

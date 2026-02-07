@@ -7,28 +7,43 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="./logo.png" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              jsBlue: '#003366',
+              jsGold: '#FFD700',
+            }
+          }
+        }
+      }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
     <style>
       :root {
         --js-blue: #003366;
         --js-gold: #FFD700;
-        --js-gold-dark: #ccac00;
       }
+      
       body {
         font-family: 'Montserrat', sans-serif;
-        background-color: #f8fafc;
-        color: #0f172a;
+        /* Use CSS variables or Tailwind for bg to avoid override issues */
         -webkit-tap-highlight-color: transparent;
         overflow-x: hidden;
       }
+      
       .serif {
         font-family: 'Playfair Display', serif;
       }
+      
       /* Mobile optimization for long words */
       .word-input {
         font-size: clamp(1.2rem, 7vw, 2.2rem);
       }
+      
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       
@@ -52,7 +67,7 @@
 }
 </script>
 </head>
-  <body>
+  <body class="bg-[#f8fafc] dark:bg-slate-950 transition-colors duration-300">
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
   </body>
