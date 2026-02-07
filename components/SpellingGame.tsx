@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, HelpCircle, CheckCircle, XCircle, AlertCircle, Mic, MicOff, Keyboard, Eye, Timer, ChevronLeft, ChevronRight, Award, RotateCcw, Lightbulb, Loader2, AlertTriangle } from 'lucide-react';
+import { Volume2, HelpCircle, CheckCircle, XCircle, AlertCircle, Mic, MicOff, Keyboard, Eye, Timer, ChevronLeft, ChevronRight, Award, RotateCcw, Lightbulb, Loader2 } from 'lucide-react';
 import { SpellingWord, Difficulty } from '../types';
 import { useElevenLabsSpeech } from '../hooks/useElevenLabsSpeech';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
@@ -30,6 +30,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
   const wasListeningRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
+  // Using Premium ElevenLabs TTS
   const { speak, isSpeaking, isGenerating, stop: stopSpeaking } = useElevenLabsSpeech();
   const { isListening, transcript, interimTranscript, startListening, resetTranscript, error: speechError } = useSpeechRecognition();
   
@@ -220,18 +221,9 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
               >
                 {isListening ? <MicOff className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
               </button>
-              
-              {/* Added error feedback for speech recognition */}
-              {speechError ? (
-                <div className="flex items-center gap-2 text-red-500 dark:text-red-400 animate-in fade-in duration-300">
-                  <AlertTriangle className="w-3 h-3" />
-                  <p className="text-[10px] font-black uppercase tracking-widest">{speechError}</p>
-                </div>
-              ) : (
-                <p className={`text-[9px] font-black uppercase tracking-[0.2em] ${isListening ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                  {isListening ? 'Spelling Capture Active' : 'Tap to Start Voice Entry'}
-                </p>
-              )}
+              <p className={`text-[9px] font-black uppercase tracking-[0.2em] ${isListening ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                {isListening ? 'Spelling Capture Active' : 'Tap to Start Voice Entry'}
+              </p>
             </div>
           )}
 
