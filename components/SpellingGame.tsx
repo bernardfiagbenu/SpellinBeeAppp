@@ -77,8 +77,6 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
     }
   }, [transcript, interimTranscript]);
 
-  const spellOutWord = (text: string) => text.split('').join('. ');
-
   const nextWord = () => !isLastWord && setCurrentIndex(p => p + 1);
   const prevWord = () => !isFirstWord && setCurrentIndex(p => p - 1);
 
@@ -94,14 +92,15 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
       setStatus('CORRECT');
       onWordSolved(currentWord);
       triggerConfetti();
-      speak(`Correct. ${currentWord.word}.`, () => {
-        setTimeout(nextWord, 1500);
+      speak(`Correct.`, () => {
+        setTimeout(nextWord, 1000);
       });
     } else {
       setStatus('WRONG');
       setAttempts(p => p + 1);
       setRevealDefinition(true);
-      speak(`Incorrect. The word was ${currentWord.word}.`);
+      speak(`Incorrect spelling.`);
+      // Shake animation is triggered by the CSS class on status change
     }
   };
 
@@ -111,7 +110,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
     setRevealDefinition(true);
     const firstLetter = currentWord.word.charAt(0).toUpperCase();
     setUserInput(firstLetter);
-    speak(`The word starts with ${firstLetter}. Definition: ${currentWord.definition}`);
+    speak(`The word starts with ${firstLetter}. Definition follows.`);
   };
 
   useEffect(() => {
@@ -122,129 +121,128 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
   }, [isListening, inputMode, userInput, status]);
 
   return (
-    <div className="w-full flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-2">
+    <div className="w-full flex flex-col gap-4 max-w-lg mx-auto">
       
       <ProgressBar current={currentIndex} total={words.length} level={currentWord.difficulty} />
 
-      {/* Control Bar */}
-      <div className="flex justify-between items-center px-1">
-        <button onClick={prevWord} disabled={isFirstWord} className="p-2 text-slate-400 hover:text-[#003366] disabled:opacity-20"><ChevronLeft className="w-8 h-8" /></button>
-        <div className="flex flex-col items-center">
-          <h2 className="text-2xl font-black font-serif italic text-[#003366]">{currentWord.difficulty} Stage</h2>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{currentIndex + 1} OF {words.length}</span>
+      <div className="flex justify-between items-center px-2">
+        <button onClick={prevWord} disabled={isFirstWord} className="p-3 text-slate-300 hover:text-[#003366] disabled:opacity-30 transition-colors"><ChevronLeft className="w-8 h-8" /></button>
+        <div className="text-center">
+          <h2 className="text-lg font-black text-[#003366] uppercase tracking-tighter">{currentWord.difficulty}</h2>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">{currentIndex + 1} / {words.length}</p>
         </div>
-        <button onClick={nextWord} disabled={isLastWord} className="p-2 text-slate-400 hover:text-[#003366] disabled:opacity-20"><ChevronRight className="w-8 h-8" /></button>
+        <button onClick={nextWord} disabled={isLastWord} className="p-3 text-slate-300 hover:text-[#003366] disabled:opacity-30 transition-colors"><ChevronRight className="w-8 h-8" /></button>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-xl border-t-8 border-[#003366] overflow-hidden p-6 md:p-10 space-y-8 relative">
-        {isAlreadySolved && <div className="absolute top-4 right-4 text-green-500 animate-bounce"><Award className="w-6 h-6" /></div>}
+      <div className={`bg-white rounded-[2.5rem] shadow-2xl border-t-8 border-[#003366] overflow-hidden p-6 md:p-8 space-y-6 relative transition-all ${status === 'WRONG' ? 'animate-shake' : ''}`}>
+        
+        {/* Solved Badge */}
+        {isAlreadySolved && <div className="absolute top-4 right-6 text-green-500"><Award className="w-6 h-6" /></div>}
         
         {/* Timer UI */}
-        <div className={`absolute top-4 left-4 px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1 transition-all ${timeLeft < 15 ? 'bg-red-50 text-red-600 border-red-100 animate-pulse' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
-          <Timer className="w-3 h-3" /> {timeLeft}s
+        <div className={`absolute top-4 left-6 px-3 py-1 rounded-full text-[10px] font-black border flex items-center gap-1 transition-all ${timeLeft < 15 ? 'bg-red-50 text-red-600 border-red-100 animate-pulse' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+          <Timer className="w-3 h-3" /> {timeLeft}S
         </div>
 
-        {/* Action Section */}
-        <div className="flex flex-col items-center gap-6">
-          <div className="relative group">
-            <div className={`absolute -inset-4 bg-[#FFD700] rounded-full blur-xl opacity-20 ${isSpeaking ? 'animate-pulse' : 'hidden'}`}></div>
-            <button 
-              onClick={() => { speak(currentWord.word); setHasSpoken(true); }}
-              className="relative w-28 h-28 bg-[#003366] text-[#FFD700] rounded-full flex items-center justify-center shadow-2xl border-4 border-white transform transition-transform active:scale-90"
-            >
-              <Volume2 className={`w-12 h-12 ${isSpeaking ? 'animate-bounce' : ''}`} />
-            </button>
-          </div>
+        {/* Pronunciation Section */}
+        <div className="flex flex-col items-center gap-6 pt-4">
+          <button 
+            onClick={() => { speak(currentWord.word); setHasSpoken(true); }}
+            className={`w-28 h-28 bg-[#003366] text-[#FFD700] rounded-full flex items-center justify-center shadow-2xl border-4 border-white transform transition-all active:scale-90 ${isSpeaking ? 'ring-8 ring-[#FFD700]/20' : ''}`}
+          >
+            <Volume2 className={`w-12 h-12 ${isSpeaking ? 'animate-pulse' : ''}`} />
+          </button>
           
-          <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
-            <button onClick={useHint} disabled={hintUsed || status !== 'IDLE'} className="flex items-center justify-center gap-2 bg-slate-50 hover:bg-[#FFD700] text-[#003366] py-3 rounded-xl font-bold text-xs uppercase border border-slate-100 disabled:opacity-40 transition-all">
-              <Lightbulb className="w-4 h-4" /> Hint {hintUsed ? '(Used)' : ''}
+          <div className="flex gap-2 w-full">
+            <button onClick={useHint} disabled={hintUsed || status !== 'IDLE'} className="flex-1 flex items-center justify-center gap-2 bg-slate-50 hover:bg-[#FFD700] text-[#003366] py-3.5 rounded-2xl font-black text-[10px] uppercase border border-slate-100 transition-all disabled:opacity-40">
+              <Lightbulb className="w-4 h-4" /> {hintUsed ? 'Hint Used' : 'Need a Hint?'}
             </button>
-            <button onClick={() => setRevealDefinition(!revealDefinition)} className="flex items-center justify-center gap-2 bg-slate-50 hover:bg-[#003366] hover:text-white text-[#003366] py-3 rounded-xl font-bold text-xs uppercase border border-slate-100 transition-all">
-              <HelpCircle className="w-4 h-4" /> Info
+            <button onClick={() => setRevealDefinition(!revealDefinition)} className="flex-1 flex items-center justify-center gap-2 bg-slate-50 hover:bg-[#003366] hover:text-white text-[#003366] py-3.5 rounded-2xl font-black text-[10px] uppercase border border-slate-100 transition-all">
+              <HelpCircle className="w-4 h-4" /> {revealDefinition ? 'Hide Info' : 'Word Info'}
             </button>
           </div>
 
           {revealDefinition && hasDefinition && (
-            <div className="w-full bg-blue-50/50 p-4 rounded-2xl border-l-4 border-[#003366] animate-in slide-in-from-top-2">
-              <p className="text-[#003366] italic serif text-base md:text-lg leading-relaxed">"{currentWord.definition}"</p>
+            <div className="w-full bg-blue-50/50 p-5 rounded-3xl border-l-4 border-[#003366] animate-in fade-in slide-in-from-top-2">
+              <p className="text-[#003366] italic serif text-base leading-relaxed">"{currentWord.definition}"</p>
             </div>
           )}
         </div>
 
-        {/* Input Section - Optimized for Mobile Typing */}
-        <div className="space-y-4">
-          <div className="flex justify-between items-center px-2">
-            <button onClick={() => setInputMode(inputMode === 'VOICE' ? 'KEYBOARD' : 'VOICE')} className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-              {inputMode === 'VOICE' ? <><Keyboard className="w-3 h-3" /> Switch to Typing</> : <><Mic className="w-3 h-3" /> Switch to Voice</>}
+        {/* Input Interface */}
+        <div className="space-y-4 pt-4">
+          <div className="flex justify-between items-center px-1">
+            <button 
+              onClick={() => { setInputMode(inputMode === 'VOICE' ? 'KEYBOARD' : 'VOICE'); setStatus('IDLE'); }} 
+              className="text-[9px] font-black text-slate-400 hover:text-[#003366] uppercase tracking-widest flex items-center gap-1.5 transition-colors"
+            >
+              {inputMode === 'VOICE' ? <><Keyboard className="w-3.5 h-3.5" /> Type Instead</> : <><Mic className="w-3.5 h-3.5" /> Use Voice</>}
             </button>
-            {userInput && <button onClick={() => { setUserInput(''); resetTranscript(); }} className="text-[10px] font-bold text-red-400 uppercase tracking-widest flex items-center gap-1"><RotateCcw className="w-3 h-3" /> Reset</button>}
+            {userInput && status !== 'CORRECT' && (
+              <button 
+                onClick={() => { setUserInput(''); resetTranscript(); setStatus('IDLE'); }} 
+                className="text-[9px] font-black text-red-400 hover:text-red-600 uppercase tracking-widest flex items-center gap-1.5 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Clear
+              </button>
+            )}
           </div>
 
           <div className="relative">
-            {/* Judge Feedback Overlay */}
-            <div className="absolute -top-10 left-0 w-full flex justify-center pointer-events-none">
-              {status === 'CORRECT' && <span className="text-green-600 font-black italic serif text-xl animate-bounce">ELIMINATED (Correct!)</span>}
-              {status === 'WRONG' && <span className="text-red-600 font-black italic serif text-xl animate-shake">INCORRECT</span>}
-            </div>
+            {/* Minimalist Feedback Overlay - Correct Only */}
+            {status === 'CORRECT' && (
+              <div className="absolute -top-8 left-0 w-full flex justify-center pointer-events-none">
+                <span className="text-green-600 font-black italic serif text-sm animate-bounce">EXCELLENT!</span>
+              </div>
+            )}
 
             <input
               ref={inputRef}
               type="text"
               value={userInput}
               readOnly={inputMode === 'VOICE'}
-              onChange={(e) => setStatus('IDLE') || setUserInput(e.target.value)}
-              placeholder={inputMode === 'VOICE' ? (isListening ? "Listening..." : "Tap Mic Below") : "Tap to type..."}
-              className={`w-full text-center word-input font-black py-8 bg-slate-50 rounded-2xl border-4 outline-none transition-all uppercase tracking-[0.2em] font-serif
-                ${status === 'IDLE' ? 'border-slate-100 focus:border-[#003366] focus:bg-white' : ''}
+              onChange={(e) => { setStatus('IDLE'); setUserInput(e.target.value); }}
+              placeholder={inputMode === 'VOICE' ? (isListening ? "Listening..." : "Tap Mic") : "Enter Spelling..."}
+              className={`w-full text-center word-input font-black py-10 bg-slate-50 rounded-[2rem] border-4 outline-none transition-all uppercase tracking-[0.2em] font-serif
+                ${status === 'IDLE' ? 'border-slate-100 focus:border-[#003366] focus:bg-white text-slate-900' : ''}
                 ${status === 'CORRECT' ? 'border-green-400 text-green-700 bg-green-50' : ''}
-                ${status === 'WRONG' ? 'border-red-400 text-red-700 bg-red-50' : ''}
+                ${status === 'WRONG' ? 'border-red-500 text-red-600 bg-red-50' : ''}
               `}
               autoComplete="off" spellCheck="false"
             />
           </div>
 
           {inputMode === 'VOICE' && status === 'IDLE' && (
-            <div className="flex flex-col items-center gap-4 py-4">
+            <div className="flex flex-col items-center gap-4 py-2">
               <button 
                 onClick={() => { resetTranscript(); setUserInput(''); startListening(); }}
                 disabled={isListening || isSpeaking}
-                className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-xl border-4 border-white ${isListening ? 'bg-red-600 text-white animate-pulse ring-8 ring-red-100' : 'bg-[#003366] text-white'}`}
+                className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-xl border-4 border-white ${isListening ? 'bg-red-600 text-white animate-pulse ring-8 ring-red-100' : 'bg-[#003366] text-white hover:bg-slate-900'}`}
               >
                 {isListening ? <MicOff className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
               </button>
-              <p className={`text-[10px] font-bold uppercase tracking-widest ${isListening ? 'text-red-600' : 'text-slate-400'}`}>
-                {isListening ? 'Voice Capture Active...' : 'Tap Mic to Start Spelling'}
+              <p className={`text-[9px] font-black uppercase tracking-[0.2em] ${isListening ? 'text-red-600' : 'text-slate-400'}`}>
+                {isListening ? 'Spelling Capture Active' : 'Tap to Start Voice Entry'}
               </p>
-              {speechError && <p className="text-xs text-red-500 font-medium">{speechError}</p>}
             </div>
           )}
 
           {inputMode === 'KEYBOARD' && status === 'IDLE' && (
-            <button onClick={checkSpelling} disabled={!userInput} className="w-full bg-[#003366] text-[#FFD700] py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all">
-              Evaluate Spelling
+            <button onClick={checkSpelling} disabled={!userInput} className="w-full bg-[#003366] text-[#FFD700] py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all disabled:opacity-50">
+              Judge Submission
             </button>
           )}
 
           {status === 'WRONG' && (
-            <div className="flex flex-col gap-3">
-              <button onClick={() => { setStatus('IDLE'); setUserInput(''); }} className="w-full bg-black text-white py-4 rounded-xl font-bold text-xs uppercase">Try Again</button>
-              <button onClick={() => setUserInput(currentWord.word)} className="w-full border-2 border-[#003366] text-[#003366] py-4 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2">
-                <Eye className="w-4 h-4" /> Reveal Correction
+            <div className="flex flex-col gap-3 animate-in fade-in duration-300">
+              <button onClick={() => { setStatus('IDLE'); setUserInput(''); }} className="w-full bg-[#003366] text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest">Try Word Again</button>
+              <button onClick={() => { setUserInput(currentWord.word); setStatus('IDLE'); }} className="w-full border-2 border-[#003366] text-[#003366] py-4 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2">
+                <Eye className="w-4 h-4" /> Show Correct Spelling
               </button>
             </div>
           )}
         </div>
       </div>
-
-      <style>{`
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-8px); }
-          75% { transform: translateX(8px); }
-        }
-        .animate-shake { animation: shake 0.3s ease-in-out infinite; }
-      `}</style>
     </div>
   );
 };

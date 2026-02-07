@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Junior Speller GH - Official Judge & Study Tool</title>
+    <title>Junior Speller GH - Official Competition App</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="./logo.png" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
@@ -15,26 +17,27 @@
       }
       body {
         font-family: 'Montserrat', sans-serif;
-        background-color: #f0f4f8;
-        color: #1a202c;
+        background-color: #f8fafc;
+        color: #0f172a;
         -webkit-tap-highlight-color: transparent;
+        overflow-x: hidden;
       }
       .serif {
         font-family: 'Playfair Display', serif;
       }
-      .bg-js-blue { background-color: var(--js-blue); }
-      .text-js-blue { color: var(--js-blue); }
-      .border-js-gold { border-color: var(--js-gold); }
-      .bg-js-gold { background-color: var(--js-gold); }
-      
       /* Mobile optimization for long words */
       .word-input {
-        font-size: clamp(1.5rem, 8vw, 2.5rem);
+        font-size: clamp(1.2rem, 7vw, 2.2rem);
       }
-      
-      /* Hide scrollbar but allow scrolling */
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-6px); }
+        75% { transform: translateX(6px); }
+      }
+      .animate-shake { animation: shake 0.2s ease-in-out 0s 2; }
     </style>
   <script type="importmap">
 {

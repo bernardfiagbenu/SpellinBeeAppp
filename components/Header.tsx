@@ -1,5 +1,5 @@
 import React from 'react';
-import { Hexagon, BookOpen, Trophy } from 'lucide-react';
+import { BookOpen, Trophy } from 'lucide-react';
 
 interface HeaderProps {
   currentView?: 'GAME' | 'LIST';
@@ -8,41 +8,40 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ currentView, onViewChange }) => {
   return (
-    <header className="w-full bg-[#003366] border-b-[8px] border-[#FFD700] py-4 px-6 shadow-xl sticky top-0 z-50">
+    <header className="w-full bg-white border-b-4 border-[#FFD700] py-2 px-4 shadow-md sticky top-0 z-50">
       <div className="max-w-5xl mx-auto flex items-center justify-between">
         <div 
-          className="flex items-center gap-3 cursor-pointer group" 
+          className="flex items-center cursor-pointer transition-transform hover:scale-105 active:scale-95" 
           onClick={() => onViewChange && onViewChange('GAME')}
         >
-          <div className="relative transform group-hover:rotate-12 transition-transform duration-300">
-             <Hexagon className="w-10 h-10 text-[#FFD700] fill-[#FFD700]" />
-             <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-[#003366] font-black text-xl italic">J</span>
-             </div>
-          </div>
-          <div>
-            <h1 className="text-lg md:text-2xl font-extrabold text-[#FFD700] tracking-tighter leading-none font-serif italic">
-              Junior Speller <br className="md:hidden" /> <span className="text-white">GH</span>
-            </h1>
-          </div>
+          <img 
+            src="./logo.png" 
+            alt="Junior Speller GH" 
+            className="h-10 md:h-14 w-auto object-contain"
+            onError={(e) => {
+              // Fallback to official web URL if logo.png is missing or broken
+              (e.target as HTMLImageElement).src = "https://juniorspellergh.com/wp-content/uploads/2021/04/Junior-Speller-Logo-e1619616056586.png";
+            }}
+          />
         </div>
         
         {onViewChange && (
-          <div className="flex items-center">
+          <div className="flex items-center gap-2">
             {currentView === 'GAME' ? (
               <button
                 onClick={() => onViewChange('LIST')}
-                className="bg-white text-[#003366] px-4 py-2 rounded-full font-bold text-xs flex items-center gap-2 hover:bg-[#FFD700] transition-all shadow-lg border-2 border-transparent hover:border-[#003366]"
+                className="bg-[#003366] text-white px-3 py-2 md:px-5 rounded-xl font-bold text-[10px] md:text-xs flex items-center gap-2 hover:bg-[#002244] transition-all shadow-sm border-2 border-transparent active:scale-95"
               >
-                <BookOpen className="w-4 h-4" />
-                <span className="uppercase tracking-widest">Words</span>
+                <BookOpen className="w-4 h-4 text-[#FFD700]" />
+                <span className="uppercase tracking-widest hidden sm:inline">Dictionary</span>
+                <span className="uppercase tracking-widest sm:hidden">Words</span>
               </button>
             ) : (
               <button
                 onClick={() => onViewChange('GAME')}
-                className="bg-[#FFD700] text-[#003366] px-4 py-2 rounded-full font-bold text-xs flex items-center gap-2 hover:bg-white transition-all shadow-lg border-2 border-[#003366]"
+                className="bg-[#FFD700] text-[#003366] px-3 py-2 md:px-5 rounded-xl font-bold text-[10px] md:text-xs flex items-center gap-2 hover:bg-yellow-400 transition-all shadow-sm border-2 border-[#003366] active:scale-95"
               >
-                <Trophy className="w-4 h-4" />
+                < Trophy className="w-4 h-4" />
                 <span className="uppercase tracking-widest">Stage</span>
               </button>
             )}
