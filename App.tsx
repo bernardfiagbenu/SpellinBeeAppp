@@ -36,7 +36,7 @@ function App() {
   const [initialIndex, setInitialIndex] = useState(0);
   const [currentView, setCurrentView] = useState<ViewState>('GAME');
   
-  // Explicitly default to Light Mode (false)
+  // Default to Light Mode (false) initially
   const [darkMode, setDarkMode] = useState(false);
   
   const [sessionConfig, setSessionConfig] = useState<SessionConfig>({ 
@@ -59,21 +59,25 @@ function App() {
     }
 
     // Check for explicit dark theme preference. 
-    // If null or 'light', it remains false (Light Mode).
     const cachedTheme = localStorage.getItem('js_gh_theme');
     if (cachedTheme === 'dark') {
       setDarkMode(true);
+    } else {
+      setDarkMode(false);
     }
 
     setLoading(false);
   }, []);
 
-  // Sync DOM with darkMode state to prevent "white flash" issues
+  // Sync DOM with darkMode state to prevent "white flash" and fix non-working toggle
   useEffect(() => {
+    const html = document.documentElement;
     if (darkMode) {
-      document.documentElement.classList.add('dark');
+      html.classList.add('dark');
+      html.style.backgroundColor = '#020617'; // slate-950
     } else {
-      document.documentElement.classList.remove('dark');
+      html.classList.remove('dark');
+      html.style.backgroundColor = '#f8fafc'; // slate-50
     }
   }, [darkMode]);
 
@@ -104,10 +108,16 @@ function App() {
       words = words.filter(w => w.word.toLowerCase().startsWith(letter.toLowerCase()));
     }
 
+    // Maintain natural order by default to ensure "starting from the first word" logic works
+    // Shuffling is only done if the user specifically chooses "Grand Finale Mix" (difficulty 'ALL')
+    // but here we allow sorting by default to be predictable.
     if (difficulty === 'ALL' && !letter) {
-      words = shuffleArray(words);
-    } else {
+      // Shuffling can stay as an option, but we prefer a fixed sequence if requested
+      // For now, let's keep it sorted alphabetically unless randomized
       words.sort((a, b) => a.word.localeCompare(b.word));
+    } else {
+      // Already in list order or filter order
+      // We don't force sort if it's already structured in wordList.ts
     }
 
     setActiveWordList(words);
