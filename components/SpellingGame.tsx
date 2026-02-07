@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Volume2, HelpCircle, CheckCircle, XCircle, AlertCircle, Mic, MicOff, Keyboard, Eye, Timer, ChevronLeft, ChevronRight, Award, RotateCcw, Lightbulb, Loader2 } from 'lucide-react';
 import { SpellingWord, Difficulty } from '../types';
-import { useGeminiSpeech } from '../hooks/useGeminiSpeech';
+import { useElevenLabsSpeech } from '../hooks/useElevenLabsSpeech';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { triggerConfetti } from '../utils/confetti';
 import { ProgressBar } from './ProgressBar';
@@ -30,8 +30,8 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
   const wasListeningRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
-  // Using the High-Quality Gemini TTS instead of native speech
-  const { speak, isSpeaking, isGenerating, stop: stopSpeaking } = useGeminiSpeech();
+  // Using Premium ElevenLabs TTS
+  const { speak, isSpeaking, isGenerating, stop: stopSpeaking } = useElevenLabsSpeech();
   const { isListening, transcript, interimTranscript, startListening, resetTranscript, error: speechError } = useSpeechRecognition();
   
   const currentWord = words[currentIndex];
@@ -105,7 +105,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
   };
 
   const useHint = () => {
-    if (hintUsed || status !== 'IDLE') return;
+    if (hintUsed || status !== 'IDLE' || isGenerating) return;
     setHintUsed(true);
     setRevealDefinition(true);
     const firstLetter = currentWord.word.charAt(0).toUpperCase();

@@ -36,7 +36,7 @@ function App() {
   const [initialIndex, setInitialIndex] = useState(0);
   const [currentView, setCurrentView] = useState<ViewState>('GAME');
   
-  // Default to light mode (false)
+  // Explicitly default to Light Mode (false)
   const [darkMode, setDarkMode] = useState(false);
   
   const [sessionConfig, setSessionConfig] = useState<SessionConfig>({ 
@@ -58,7 +58,8 @@ function App() {
       } catch (e) { console.error(e); }
     }
 
-    // Explicitly check for 'dark' theme. If null or 'light', stays false.
+    // Check for explicit dark theme preference. 
+    // If null or 'light', it remains false (Light Mode).
     const cachedTheme = localStorage.getItem('js_gh_theme');
     if (cachedTheme === 'dark') {
       setDarkMode(true);
@@ -67,7 +68,7 @@ function App() {
     setLoading(false);
   }, []);
 
-  // Sync DOM with darkMode state
+  // Sync DOM with darkMode state to prevent "white flash" issues
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
