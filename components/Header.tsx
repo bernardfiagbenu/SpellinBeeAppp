@@ -26,13 +26,17 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onViewChange, darkM
         </div>
         
         <div className="flex items-center gap-2 md:gap-4">
-          {/* Day/Night Toggle */}
+          {/* Day/Night Toggle - Improved visibility */}
           <button
             onClick={onToggleDarkMode}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-yellow-400 transition-all hover:bg-slate-200 dark:hover:bg-slate-700"
+            className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-yellow-400 transition-all hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-center"
             aria-label="Toggle Night Mode"
           >
-            {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            {darkMode ? (
+              <Sun className="w-5 h-5 fill-yellow-400 text-yellow-500" />
+            ) : (
+              <Moon className="w-5 h-5 fill-slate-700 text-slate-800" />
+            )}
           </button>
 
           {onViewChange && (

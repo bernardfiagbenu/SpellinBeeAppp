@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, HelpCircle, CheckCircle, XCircle, AlertCircle, Mic, MicOff, Keyboard, Eye, Timer, ChevronLeft, ChevronRight, Award, RotateCcw, Lightbulb } from 'lucide-react';
+import { Volume2, HelpCircle, CheckCircle, XCircle, AlertCircle, Mic, MicOff, Keyboard, Eye, Timer, ChevronLeft, ChevronRight, Award, RotateCcw, Lightbulb, Loader2 } from 'lucide-react';
 import { SpellingWord, Difficulty } from '../types';
-import { useSpeech } from '../hooks/useSpeech';
+import { useGeminiSpeech } from '../hooks/useGeminiSpeech';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { triggerConfetti } from '../utils/confetti';
 import { ProgressBar } from './ProgressBar';
@@ -30,7 +30,8 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
   const wasListeningRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
-  const { speak, isSpeaking, stop: stopSpeaking } = useSpeech();
+  // Using the High-Quality Gemini TTS instead of native speech
+  const { speak, isSpeaking, isGenerating, stop: stopSpeaking } = useGeminiSpeech();
   const { isListening, transcript, interimTranscript, startListening, resetTranscript, error: speechError } = useSpeechRecognition();
   
   const currentWord = words[currentIndex];
@@ -92,14 +93,14 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
       setStatus('CORRECT');
       onWordSolved(currentWord);
       triggerConfetti();
-      speak(`Correct.`, () => {
-        setTimeout(nextWord, 1000);
+      speak(`Correct. Well done.`, () => {
+        setTimeout(nextWord, 1200);
       });
     } else {
       setStatus('WRONG');
       setAttempts(p => p + 1);
       setRevealDefinition(true);
-      speak(`Incorrect spelling.`);
+      speak(`That is incorrect.`);
     }
   };
 
@@ -109,7 +110,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
     setRevealDefinition(true);
     const firstLetter = currentWord.word.charAt(0).toUpperCase();
     setUserInput(firstLetter);
-    speak(`The word starts with ${firstLetter}. Definition follows.`);
+    speak(`The word starts with the letter ${firstLetter}.`);
   };
 
   useEffect(() => {
@@ -144,13 +145,18 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
         <div className="flex flex-col items-center gap-6 pt-4">
           <button 
             onClick={() => { speak(currentWord.word); setHasSpoken(true); }}
-            className={`w-28 h-28 bg-[#003366] dark:bg-blue-700 text-[#FFD700] rounded-full flex items-center justify-center shadow-2xl border-4 border-white dark:border-slate-800 transform transition-all active:scale-90 ${isSpeaking ? 'ring-8 ring-[#FFD700]/20 dark:ring-blue-500/20' : ''}`}
+            disabled={isGenerating}
+            className={`w-28 h-28 bg-[#003366] dark:bg-blue-700 text-[#FFD700] rounded-full flex items-center justify-center shadow-2xl border-4 border-white dark:border-slate-800 transform transition-all active:scale-90 disabled:opacity-80 ${isSpeaking ? 'ring-8 ring-[#FFD700]/20 dark:ring-blue-500/20' : ''}`}
           >
-            <Volume2 className={`w-12 h-12 ${isSpeaking ? 'animate-pulse' : ''}`} />
+            {isGenerating ? (
+              <Loader2 className="w-12 h-12 animate-spin" />
+            ) : (
+              <Volume2 className={`w-12 h-12 ${isSpeaking ? 'animate-pulse' : ''}`} />
+            )}
           </button>
           
           <div className="flex gap-2 w-full">
-            <button onClick={useHint} disabled={hintUsed || status !== 'IDLE'} className="flex-1 flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-800 hover:bg-[#FFD700] hover:text-[#003366] text-[#003366] dark:text-blue-400 py-3.5 rounded-2xl font-black text-[10px] uppercase border border-slate-100 dark:border-slate-700 transition-all disabled:opacity-40">
+            <button onClick={useHint} disabled={hintUsed || status !== 'IDLE' || isGenerating} className="flex-1 flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-800 hover:bg-[#FFD700] hover:text-[#003366] text-[#003366] dark:text-blue-400 py-3.5 rounded-2xl font-black text-[10px] uppercase border border-slate-100 dark:border-slate-700 transition-all disabled:opacity-40">
               <Lightbulb className="w-4 h-4" /> {hintUsed ? 'Hint Used' : 'Need a Hint?'}
             </button>
             <button onClick={() => setRevealDefinition(!revealDefinition)} className="flex-1 flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-800 hover:bg-[#003366] dark:hover:bg-blue-600 hover:text-white text-[#003366] dark:text-blue-400 py-3.5 rounded-2xl font-black text-[10px] uppercase border border-slate-100 dark:border-slate-700 transition-all">
@@ -169,14 +175,14 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
           <div className="flex justify-between items-center px-1">
             <button 
               onClick={() => { setInputMode(inputMode === 'VOICE' ? 'KEYBOARD' : 'VOICE'); setStatus('IDLE'); }} 
-              className="text-[9px] font-black text-slate-400 dark:text-slate-500 hover:text-[#003366] dark:hover:text-blue-400 uppercase tracking-widest flex items-center gap-1.5 transition-colors"
+              className="text-[9px] font-black text-slate-500 dark:text-slate-400 hover:text-[#003366] dark:hover:text-blue-400 uppercase tracking-widest flex items-center gap-1.5 transition-colors"
             >
               {inputMode === 'VOICE' ? <><Keyboard className="w-3.5 h-3.5" /> Type Instead</> : <><Mic className="w-3.5 h-3.5" /> Use Voice</>}
             </button>
             {userInput && status !== 'CORRECT' && (
               <button 
                 onClick={() => { setUserInput(''); resetTranscript(); setStatus('IDLE'); }} 
-                className="text-[9px] font-black text-red-400 dark:text-red-500 hover:text-red-600 uppercase tracking-widest flex items-center gap-1.5 transition-colors"
+                className="text-[9px] font-black text-red-500 dark:text-red-400 hover:text-red-600 uppercase tracking-widest flex items-center gap-1.5 transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> Clear
               </button>
@@ -198,7 +204,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
               onChange={(e) => { setStatus('IDLE'); setUserInput(e.target.value); }}
               placeholder={inputMode === 'VOICE' ? (isListening ? "Listening..." : "Tap Mic") : "Enter Spelling..."}
               className={`w-full text-center word-input font-black py-10 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border-4 outline-none transition-all uppercase tracking-[0.2em] font-serif
-                ${status === 'IDLE' ? 'border-slate-100 dark:border-slate-800 focus:border-[#003366] dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white' : ''}
+                ${status === 'IDLE' ? 'border-slate-200 dark:border-slate-800 focus:border-[#003366] dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white' : ''}
                 ${status === 'CORRECT' ? 'border-green-400 dark:border-green-600 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/10' : ''}
                 ${status === 'WRONG' ? 'border-red-500 dark:border-red-700 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10' : ''}
               `}
@@ -210,19 +216,19 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
             <div className="flex flex-col items-center gap-4 py-2">
               <button 
                 onClick={() => { resetTranscript(); setUserInput(''); startListening(); }}
-                disabled={isListening || isSpeaking}
+                disabled={isListening || isSpeaking || isGenerating}
                 className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-xl border-4 border-white dark:border-slate-800 ${isListening ? 'bg-red-600 text-white animate-pulse ring-8 ring-red-100 dark:ring-red-900/20' : 'bg-[#003366] dark:bg-blue-700 text-white hover:bg-slate-900 dark:hover:bg-blue-600'}`}
               >
                 {isListening ? <MicOff className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
               </button>
-              <p className={`text-[9px] font-black uppercase tracking-[0.2em] ${isListening ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}>
+              <p className={`text-[9px] font-black uppercase tracking-[0.2em] ${isListening ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
                 {isListening ? 'Spelling Capture Active' : 'Tap to Start Voice Entry'}
               </p>
             </div>
           )}
 
           {inputMode === 'KEYBOARD' && status === 'IDLE' && (
-            <button onClick={checkSpelling} disabled={!userInput} className="w-full bg-[#003366] dark:bg-blue-700 text-[#FFD700] py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all disabled:opacity-50">
+            <button onClick={checkSpelling} disabled={!userInput || isGenerating} className="w-full bg-[#003366] dark:bg-blue-700 text-[#FFD700] py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all disabled:opacity-50">
               Judge Submission
             </button>
           )}
