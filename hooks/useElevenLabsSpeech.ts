@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { decodeBase64, decodeAudioData as decodePCM } from '../utils/audioUtils';
 
-// This hook handles all speech for the judge, prioritizing the best free neural voices.
+// Legacy name kept for compatibility, but powered by the ultimate Gemini TTS engine.
 const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) ? process.env.API_KEY : '';
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
@@ -27,20 +27,20 @@ export const useElevenLabsSpeech = () => {
     if (!ai) throw new Error("AI not ready");
 
     try {
-      // Extensive research suggests 'Zephyr' is the most articulate voice for distinct words
+      // 'Puck' is the ultimate free voice for clarity. 
+      // We instruct the AI to act as a phonetics expert to ensure tricky letters are distinct.
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ 
           parts: [{ 
-            text: `Please say the word clearly and enunciate every syllable: "${text}"` 
+            text: `As an official International Spelling Bee judge and phonetics expert, pronounce the word "${text}" extremely clearly. Emphasize every syllable and ensure consonants are sharp and distinct. Speak slowly.` 
           }] 
         }],
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
             voiceConfig: { 
-              // 'Zephyr' is chosen for superior vowel clarity and consonant sharpness
-              prebuiltVoiceConfig: { voiceName: 'Zephyr' } 
+              prebuiltVoiceConfig: { voiceName: 'Puck' } 
             },
           },
         },
@@ -50,11 +50,11 @@ export const useElevenLabsSpeech = () => {
       if (!base64Audio) throw new Error();
 
       const audioBytes = decodeBase64(base64Audio);
+      
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       }
       
-      // Resume context if suspended (common on mobile browsers)
       if (audioContextRef.current.state === 'suspended') {
         await audioContextRef.current.resume();
       }
@@ -63,9 +63,8 @@ export const useElevenLabsSpeech = () => {
       const source = audioContextRef.current.createBufferSource();
       source.buffer = audioBuffer;
       
-      // Dynamic compression/gain to ensure clarity on mobile speakers
       const gainNode = audioContextRef.current.createGain();
-      gainNode.gain.value = 1.1; // Slight boost for mobile
+      gainNode.gain.value = 1.3; // Extra clarity boost for mobile environments
       source.connect(gainNode);
       gainNode.connect(audioContextRef.current.destination);
       
@@ -75,13 +74,12 @@ export const useElevenLabsSpeech = () => {
       };
 
       setIsSpeaking(true);
-      source.start();
+      source.start(0);
       currentSourceRef.current = source;
     } catch (e) {
-      // Silent browser fallback if API is unreachable
       setIsSpeaking(false);
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.85; // Slightly slower for clarity
+      utterance.rate = 0.8; 
       utterance.onend = () => onEnd?.();
       window.speechSynthesis.speak(utterance);
     }
