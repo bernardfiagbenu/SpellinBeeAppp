@@ -1,11 +1,11 @@
-
 import React, { useEffect, useState, useMemo } from 'react';
 import { Header } from './components/Header';
 import { SpellingGame } from './components/SpellingGame';
 import { WordListView } from './components/WordListView';
+import { LegalModal } from './components/LegalModal';
 import { wordList } from './data/wordList';
 import { Difficulty, SpellingWord } from './types';
-import { Shuffle, Hexagon, ArrowDownAZ, Trash2 } from 'lucide-react';
+import { Shuffle, Hexagon, ArrowDownAZ, Trash2, LayoutGrid, ListFilter } from 'lucide-react';
 
 type ViewState = 'GAME' | 'LIST';
 type SessionDifficulty = Difficulty | 'ALL';
@@ -29,11 +29,11 @@ const shuffleArray = (array: SpellingWord[]) => {
 const beeLevels = [Difficulty.ONE_BEE, Difficulty.TWO_BEE, Difficulty.THREE_BEE];
 const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
 
-// Helper to create a unique ID for each word
 const getWordId = (word: SpellingWord) => `${word.difficulty}:${word.word.toLowerCase()}`;
 
 function App() {
   const [loading, setLoading] = useState(true);
+  const [hasConsent, setHasConsent] = useState(false);
   const [initialIndex, setInitialIndex] = useState(0);
   const [currentView, setCurrentView] = useState<ViewState>('GAME');
   const [sessionConfig, setSessionConfig] = useState<SessionConfig>({ 
@@ -44,18 +44,23 @@ function App() {
   const [activeWordList, setActiveWordList] = useState<SpellingWord[]>([]);
   const [solvedWordIds, setSolvedWordIds] = useState<Set<string>>(new Set());
 
-  // Load solved words from cache on mount
   useEffect(() => {
-    const cached = localStorage.getItem('bee_judge_solved_ids');
-    if (cached) {
+    const cachedConsent = localStorage.getItem('js_gh_consent_accepted');
+    if (cachedConsent === 'true') setHasConsent(true);
+
+    const cachedSolved = localStorage.getItem('bee_judge_solved_ids');
+    if (cachedSolved) {
       try {
-        const parsed = JSON.parse(cached);
-        setSolvedWordIds(new Set(parsed));
-      } catch (e) {
-        console.error("Failed to load solved words cache", e);
-      }
+        setSolvedWordIds(new Set(JSON.parse(cachedSolved)));
+      } catch (e) { console.error(e); }
     }
+    setLoading(false);
   }, []);
+
+  const handleAcceptConsent = () => {
+    setHasConsent(true);
+    localStorage.setItem('js_gh_consent_accepted', 'true');
+  };
 
   const wordCounts = useMemo(() => ({
     ALL: wordList.length,
@@ -65,7 +70,6 @@ function App() {
   }), []);
 
   useEffect(() => {
-    setLoading(true);
     let words: SpellingWord[] = [];
     const { difficulty, order, letter } = sessionConfig;
 
@@ -90,12 +94,8 @@ function App() {
     }
 
     setActiveWordList(words);
-    
-    // When filters change, specifically the letter or level, we start from word 1 (index 0)
-    // as requested by the user.
     setInitialIndex(0);
-    setLoading(false);
-  }, [sessionConfig.difficulty, sessionConfig.letter, sessionConfig.order]);
+  }, [sessionConfig]);
 
   const handleWordSolved = (word: SpellingWord) => {
     const id = getWordId(word);
@@ -108,135 +108,94 @@ function App() {
   };
 
   const resetAllProgress = () => {
-    if (confirm("Are you sure you want to clear all solved word progress?")) {
+    if (confirm("Reset all solved word progress? This cannot be undone.")) {
       setSolvedWordIds(new Set());
       localStorage.removeItem('bee_judge_solved_ids');
     }
   };
 
-  const getSessionTitle = () => {
-    const { difficulty, letter } = sessionConfig;
-    const prefix = difficulty === 'ALL' ? "Champion's Mix" : difficulty;
-    const letterSuffix = letter ? ` - Letter ${letter}` : '';
-    return `${prefix}${letterSuffix}`;
-  };
-
-  const updateLetter = (letter: string | null) => {
-    setSessionConfig(prev => ({ ...prev, letter }));
-  };
-
-  if (loading && activeWordList.length === 0) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-[#fdb714]"></div>
-      </div>
-    );
-  }
+  if (loading) return null;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col font-sans text-slate-900 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+    <div className="min-h-screen bg-white flex flex-col font-sans text-slate-900">
+      {!hasConsent && <LegalModal onAccept={handleAcceptConsent} />}
+      
       <Header currentView={currentView} onViewChange={setCurrentView} />
       
-      <main className="flex-grow flex flex-col items-center justify-start pt-8 md:pt-10 pb-12 px-4 w-full">
+      <main className="flex-grow flex flex-col items-center justify-start py-6 px-4 w-full max-w-5xl mx-auto overflow-x-hidden">
         
-        <div className="w-full max-w-5xl mb-10 space-y-8">
-          <div className="flex flex-col md:flex-row md:justify-center items-center gap-6">
-            <div className="flex flex-col items-center gap-2">
-              <h3 className="font-bold text-[10px] uppercase tracking-[0.2em] text-slate-400">Master List</h3>
-              <button
-                onClick={() => setSessionConfig({ difficulty: 'ALL', order: 'RANDOM', letter: null })}
-                className={`flex items-center gap-2 px-6 py-3 font-bold text-sm transition-all transform hover:-translate-y-0.5 w-64 justify-center border-2 ${
-                  sessionConfig.difficulty === 'ALL' && !sessionConfig.letter
-                    ? 'bg-black text-[#fdb714] border-black shadow-xl'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-black hover:text-black'
-                }`}
-              >
-                <Shuffle className="w-4 h-4" />
-                Random Mix <span className="text-[10px] ml-1 px-1.5 py-0.5 bg-slate-100 text-slate-500">{wordCounts.ALL}</span>
-              </button>
-            </div>
-            
-            <div className="flex justify-center gap-4">
-              {beeLevels.map(level => (
-                <div key={level} className="flex flex-col items-center gap-2">
-                  <h3 className="font-bold text-[10px] uppercase tracking-[0.2em] text-slate-400 flex items-center gap-1.5">
-                    <Hexagon className="w-3 h-3 text-[#fdb714]"/> {level}
-                  </h3>
-                  <div className="flex flex-col gap-2">
-                    <button
-                      onClick={() => setSessionConfig(prev => ({ ...prev, difficulty: level, order: 'ALPHA' }))}
-                      className={`flex items-center gap-2 px-4 py-2 font-bold text-xs transition-colors w-40 justify-center border ${
-                        sessionConfig.difficulty === level && sessionConfig.order === 'ALPHA'
-                          ? 'bg-black text-[#fdb714] border-black shadow-lg'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-black hover:text-black'
-                      }`}
-                    >
-                      <ArrowDownAZ className="w-4 h-4" /> Alphabetical
-                    </button>
-                     <button
-                      onClick={() => setSessionConfig(prev => ({ ...prev, difficulty: level, order: 'RANDOM' }))}
-                      className={`flex items-center gap-2 px-4 py-2 font-bold text-xs transition-colors w-40 justify-center border ${
-                        sessionConfig.difficulty === level && sessionConfig.order === 'RANDOM'
-                          ? 'bg-black text-[#fdb714] border-black shadow-lg'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-black hover:text-black'
-                      }`}
-                    >
-                      <Shuffle className="w-4 h-4" /> Random
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* Session Config - Mobile Optimized */}
+        <div className="w-full space-y-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             {/* Master Mix Card */}
+             <div className="md:col-span-1 bg-slate-50 border-2 border-[#003366]/10 p-4 rounded-xl flex flex-col items-center justify-center">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Competition Mix</span>
+                <button
+                  onClick={() => setSessionConfig({ difficulty: 'ALL', order: 'RANDOM', letter: null })}
+                  className={`flex items-center gap-2 px-6 py-3 font-bold text-sm transition-all w-full justify-center rounded-lg ${
+                    sessionConfig.difficulty === 'ALL' && !sessionConfig.letter
+                      ? 'bg-[#003366] text-[#FFD700] shadow-lg'
+                      : 'bg-white text-slate-700 border border-slate-200 shadow-sm'
+                  }`}
+                >
+                  <Shuffle className="w-4 h-4" />
+                  GRAND FINALE MIX
+                </button>
+             </div>
 
-          <div className="bg-slate-50/80 p-6 border-y border-slate-200 backdrop-blur-sm">
-             <div className="max-w-4xl mx-auto flex flex-col items-center gap-4">
-                <h3 className="font-bold text-[10px] uppercase tracking-[0.2em] text-slate-400">Jump to Alphabetical Group</h3>
-                <div className="flex flex-wrap justify-center gap-1.5">
-                  <button
-                    onClick={() => updateLetter(null)}
-                    className={`px-3 py-1.5 h-10 min-w-[50px] text-xs font-black transition-all border ${
-                      !sessionConfig.letter
-                        ? 'bg-black text-[#fdb714] border-black shadow-md'
-                        : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400 hover:text-black'
-                    }`}
-                  >
-                    ALL
-                  </button>
-                  {alphabet.map(letter => (
+             {/* Bee Levels Filter */}
+             <div className="md:col-span-2 bg-slate-50 border-2 border-[#003366]/10 p-4 rounded-xl flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Select Challenge Level</span>
+                  <ListFilter className="w-4 h-4 text-slate-300" />
+                </div>
+                <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                  {beeLevels.map(level => (
                     <button
-                      key={letter}
-                      onClick={() => updateLetter(letter)}
-                      className={`flex items-center justify-center h-10 w-10 text-xs font-black transition-all border ${
-                        sessionConfig.letter === letter
-                          ? 'bg-black text-[#fdb714] border-black shadow-md'
-                          : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400 hover:text-black'
+                      key={level}
+                      onClick={() => setSessionConfig(prev => ({ ...prev, difficulty: level, order: 'ALPHA' }))}
+                      className={`flex-1 min-w-[100px] flex flex-col items-center gap-1 p-3 font-bold text-xs transition-all border-2 rounded-lg ${
+                        sessionConfig.difficulty === level
+                          ? 'bg-[#003366] text-[#FFD700] border-[#003366] shadow-md scale-[1.02]'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-[#003366]'
                       }`}
                     >
-                      {letter}
+                      <Hexagon className={`w-5 h-5 ${sessionConfig.difficulty === level ? 'fill-[#FFD700]' : ''}`} />
+                      {level}
                     </button>
                   ))}
                 </div>
              </div>
           </div>
+
+          {/* Alphabet Scroller for Mobile */}
+          <div className="bg-white p-3 border-b-2 border-slate-100 sticky top-16 z-40">
+             <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-2">
+                <button
+                  onClick={() => setSessionConfig(prev => ({ ...prev, letter: null }))}
+                  className={`px-4 py-2 text-xs font-black shrink-0 rounded-full border-2 transition-all ${
+                    !sessionConfig.letter ? 'bg-[#FFD700] border-[#003366] text-[#003366]' : 'bg-slate-50 border-transparent text-slate-400'
+                  }`}
+                >
+                  ALL A-Z
+                </button>
+                {alphabet.map(letter => (
+                  <button
+                    key={letter}
+                    onClick={() => setSessionConfig(prev => ({ ...prev, letter }))}
+                    className={`h-10 w-10 flex items-center justify-center text-sm font-black shrink-0 rounded-full border-2 transition-all ${
+                      sessionConfig.letter === letter ? 'bg-[#FFD700] border-[#003366] text-[#003366] scale-110' : 'bg-slate-50 border-transparent text-slate-400'
+                    }`}
+                  >
+                    {letter}
+                  </button>
+                ))}
+             </div>
+          </div>
         </div>
 
         {currentView === 'GAME' ? (
-          <div className="w-full max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="text-center mb-10">
-               <div className="inline-flex items-center gap-2 mb-2">
-                  <Hexagon className="w-5 h-5 text-[#fdb714] fill-[#fdb714]" />
-                  <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Stage Session</span>
-                  <Hexagon className="w-5 h-5 text-[#fdb714] fill-[#fdb714]" />
-               </div>
-               <h2 className="text-4xl md:text-5xl font-black text-black mb-3 font-serif tracking-tight">
-                 {getSessionTitle()}
-               </h2>
-               <p className="text-slate-500 font-medium">
-                 {activeWordList.length > 0 ? `Word ${initialIndex + 1} of ${activeWordList.length}` : 'No words found in this selection'}
-               </p>
-             </div>
-             
+          <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
              {activeWordList.length > 0 ? (
                <SpellingGame 
                   key={`${sessionConfig.difficulty}-${sessionConfig.order}-${sessionConfig.letter}`}
@@ -246,15 +205,10 @@ function App() {
                   onWordSolved={handleWordSolved}
                />
              ) : (
-               <div className="text-center py-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-none">
+               <div className="text-center py-20">
                   <Hexagon className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-slate-400 uppercase tracking-widest">No words start with "{sessionConfig.letter}" in this level</h3>
-                  <button 
-                    onClick={() => setSessionConfig(prev => ({ ...prev, letter: null }))}
-                    className="mt-6 text-[#fdb714] bg-black px-6 py-2 font-bold text-sm uppercase tracking-widest hover:scale-105 transition-transform"
-                  >
-                    Clear Filter
-                  </button>
+                  <h3 className="text-xl font-bold text-slate-400">NO WORDS FOUND</h3>
+                  <button onClick={() => setSessionConfig(p => ({...p, letter: null}))} className="mt-4 text-[#003366] font-bold underline">Show all words</button>
                </div>
              )}
           </div>
@@ -269,27 +223,21 @@ function App() {
         )}
       </main>
       
-      <footer className="bg-black text-white py-12 border-t-8 border-[#fdb714] text-center mt-auto">
+      <footer className="bg-[#003366] text-white py-10 text-center mt-auto border-t-8 border-[#FFD700]">
         <div className="max-w-4xl mx-auto px-4">
-          <Hexagon className="w-10 h-10 text-[#fdb714] mx-auto mb-6" />
-          <p className="font-serif font-bold text-2xl mb-2">Scripps National Spelling Bee</p>
-          <p className="text-slate-400 text-xs uppercase tracking-[0.3em] mb-8">Official Words of the Champions 2026</p>
+          <p className="font-serif font-bold text-2xl mb-1 italic">Junior Speller GH</p>
+          <p className="text-[#FFD700] text-[10px] font-bold uppercase tracking-[0.4em] mb-6">Mastering the Art of Spelling</p>
           
-          <div className="flex flex-col items-center gap-4 mb-8">
-            <div className="flex justify-center gap-8 text-[10px] uppercase tracking-widest font-bold text-slate-500">
-               <span>Level: {sessionConfig.difficulty}</span>
-               <span>Filter: {sessionConfig.letter || 'None'}</span>
-               <span>Solved: {solvedWordIds.size}</span>
-            </div>
-            <button 
-              onClick={resetAllProgress}
-              className="flex items-center gap-1.5 text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors uppercase tracking-[0.2em]"
-            >
-              <Trash2 className="w-3 h-3" /> Reset Solved Progress
-            </button>
-          </div>
-
-          <p className="text-slate-700 text-[10px]">© {new Date().getFullYear()} Scripps National Spelling Bee. All rights reserved.</p>
+          <button 
+            onClick={resetAllProgress}
+            className="text-[10px] font-bold text-red-300 hover:text-white transition-colors uppercase tracking-[0.2em] flex items-center gap-1 mx-auto border border-red-300/30 px-3 py-1.5 rounded"
+          >
+            <Trash2 className="w-3 h-3" /> Clear Session Cache
+          </button>
+          
+          <p className="text-blue-300 text-[9px] mt-8 uppercase tracking-widest font-medium opacity-50 italic">
+            Developed to the highest academic standards of Ghana
+          </p>
         </div>
       </footer>
     </div>

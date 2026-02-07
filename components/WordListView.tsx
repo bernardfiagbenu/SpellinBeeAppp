@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { SpellingWord, Difficulty } from '../types';
 import { ArrowLeft, Search, BookOpen, Hexagon, Award } from 'lucide-react';
 
@@ -13,161 +12,82 @@ export const WordListView: React.FC<WordListViewProps> = ({ words, onBack, solve
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
 
-  // Reset local filters when the underlying word list changes (e.g., user selects a new bee level)
-  useEffect(() => {
-    setSearchTerm('');
-    setSelectedLetter(null);
-  }, [words]);
-
-  const handleLetterClick = (letter: string) => {
-    setSelectedLetter(prev => (prev === letter ? null : letter));
-  };
-
   const filteredWords = words.filter(w => {
     const matchesSearch = w.word.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesLetter = selectedLetter ? w.word.toLowerCase().startsWith(selectedLetter.toLowerCase()) : true;
     return matchesSearch && matchesLetter;
   });
 
-  const getDifficultyBadgeClass = (diff: Difficulty) => {
-    switch(diff) {
-        case Difficulty.ONE_BEE:
-            return 'bg-blue-100 text-blue-800 border-blue-200';
-        case Difficulty.TWO_BEE:
-            return 'bg-orange-100 text-orange-800 border-orange-200';
-        case Difficulty.THREE_BEE:
-            return 'bg-purple-100 text-purple-800 border-purple-200';
-        default:
-            return 'bg-slate-100 text-slate-800 border-slate-200';
-    }
-  };
-
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
 
   return (
-    <div className="w-full max-w-5xl mx-auto p-4">
-      <div className="bg-white shadow-xl border-t-8 border-[#fdb714] overflow-hidden">
-        {/* Header Section */}
-        <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-4 w-full md:w-auto">
-              <button
-                onClick={onBack}
-                className="flex items-center gap-2 text-slate-600 hover:text-black font-bold transition-colors group uppercase tracking-wider text-xs"
-              >
-                <div className="bg-white p-2 border border-slate-200 group-hover:border-[#fdb714] transition-colors shadow-sm">
-                   <ArrowLeft className="w-4 h-4" />
-                </div>
-                Back to Stage
-              </button>
-              <div className="h-8 w-px bg-slate-200 mx-2 hidden md:block"></div>
-              <h2 className="text-xl font-black font-serif flex items-center gap-2 text-slate-900">
-                <BookOpen className="w-6 h-6 text-[#fdb714]" />
-                Words of the Champions
-              </h2>
-            </div>
-            
-            <div className="relative w-full md:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search words..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 border-2 border-slate-200 focus:border-[#fdb714] outline-none transition-all text-sm font-medium"
-              />
-            </div>
+    <div className="w-full space-y-4 animate-in fade-in">
+      <div className="bg-white rounded-3xl shadow-xl overflow-hidden border-t-8 border-[#003366]">
+        {/* Mobile Header */}
+        <div className="p-5 border-b border-slate-100 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <button onClick={onBack} className="p-2 -ml-2 text-[#003366]"><ArrowLeft className="w-6 h-6" /></button>
+            <h2 className="text-lg font-black serif italic text-[#003366] flex items-center gap-2"><BookOpen className="w-5 h-5" /> Word Archives</h2>
+            <div className="w-6 h-6"></div>
+          </div>
+          
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search dictionary..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-100 focus:border-[#003366] rounded-xl outline-none text-sm font-semibold transition-all"
+            />
           </div>
         </div>
 
-        {/* Alphabet Filter Bar */}
-        <div className="p-4 border-b border-slate-200 bg-slate-50">
-          <div className="flex flex-wrap justify-center items-center gap-1 md:gap-1.5">
-            <button
-              onClick={() => setSelectedLetter(null)}
-              className={`px-3 py-1.5 h-9 w-12 text-sm font-bold transition-colors ${
-                !selectedLetter
-                  ? 'bg-black text-white shadow-md'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              All
-            </button>
-            {alphabet.map(letter => (
-              <button
-                key={letter}
-                onClick={() => handleLetterClick(letter)}
-                className={`flex items-center justify-center h-9 w-9 text-sm font-bold transition-colors ${
-                  selectedLetter === letter
-                    ? 'bg-black text-white shadow-md'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                {letter}
-              </button>
-            ))}
-          </div>
+        {/* Scrollable Letters */}
+        <div className="bg-slate-50 p-3 border-b border-slate-100 overflow-x-auto no-scrollbar flex items-center gap-2">
+           <button onClick={() => setSelectedLetter(null)} className={`px-4 py-2 shrink-0 rounded-full text-xs font-bold ${!selectedLetter ? 'bg-[#003366] text-white shadow-lg' : 'bg-white text-slate-500 border border-slate-200'}`}>ALL</button>
+           {alphabet.map(l => (
+             <button key={l} onClick={() => setSelectedLetter(l === selectedLetter ? null : l)} className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-full text-xs font-bold ${selectedLetter === l ? 'bg-[#003366] text-white shadow-lg' : 'bg-white text-slate-500 border border-slate-200'}`}>{l}</button>
+           ))}
         </div>
 
-        {/* List Section */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-black text-white text-xs uppercase tracking-widest font-bold">
-              <tr>
-                <th className="py-4 px-6 w-16">Status</th>
-                <th className="py-4 px-6 w-48">Word</th>
-                <th className="py-4 px-6 w-40">Difficulty Level</th>
-                <th className="py-4 px-6">Definition</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredWords.map((word, index) => {
+        {/* List Content */}
+        <div className="max-h-[60vh] overflow-y-auto">
+          {filteredWords.length > 0 ? (
+            <div className="divide-y divide-slate-50">
+              {filteredWords.map((word, i) => {
                 const isSolved = solvedWordIds.has(`${word.difficulty}:${word.word.toLowerCase()}`);
                 return (
-                  <tr key={index} className="hover:bg-yellow-50 transition-colors group">
-                    <td className="py-4 px-6 text-center">
-                       {isSolved && <Award className="w-5 h-5 text-green-500 mx-auto" />}
-                    </td>
-                    <td className="py-4 px-6 font-serif font-bold text-slate-900 capitalize text-lg group-hover:text-black">
-                      <div className="flex items-center gap-2">
-                          <Hexagon className="w-2 h-2 text-[#fdb714] fill-[#fdb714] opacity-0 group-hover:opacity-100 transition-opacity" />
-                          {word.word}
+                  <div key={i} className={`p-4 flex gap-4 transition-colors ${isSolved ? 'bg-green-50/30' : 'hover:bg-slate-50'}`}>
+                    <div className="shrink-0 pt-1">
+                      {isSolved ? <Award className="w-5 h-5 text-green-500" /> : <Hexagon className="w-5 h-5 text-slate-200" />}
+                    </div>
+                    <div className="flex-grow">
+                      <h4 className="font-serif font-black text-[#003366] text-lg uppercase tracking-tight">{word.word}</h4>
+                      <div className="flex items-center gap-2 my-1">
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${
+                          word.difficulty === Difficulty.ONE_BEE ? 'bg-blue-50 text-blue-700 border-blue-100' : 
+                          word.difficulty === Difficulty.TWO_BEE ? 'bg-orange-50 text-orange-700 border-orange-100' : 
+                          'bg-purple-50 text-purple-700 border-purple-100'
+                        }`}>{word.difficulty}</span>
+                        {word.altSpelling && <span className="text-[9px] text-slate-400 font-bold uppercase">Alt: {word.altSpelling}</span>}
                       </div>
-                      {word.altSpelling && <span className="block text-xs text-slate-400 font-sans font-normal mt-1 ml-4">or {word.altSpelling}</span>}
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className={`inline-flex items-center px-3 py-1 text-[10px] uppercase tracking-widest font-bold border ${getDifficultyBadgeClass(word.difficulty)}`}>
-                        {word.difficulty}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-slate-600 text-sm leading-relaxed font-medium">
-                      {word.definition ? (
-                        <span className="">{word.definition}</span>
-                      ) : (
-                        <span className="text-slate-300 select-none">-</span>
-                      )}
-                    </td>
-                  </tr>
+                      <p className="text-xs text-slate-500 italic mt-2 line-clamp-2">{word.definition || "No definition provided."}</p>
+                    </div>
+                  </div>
                 );
               })}
-              {filteredWords.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-16 text-center text-slate-500 bg-slate-50/30">
-                    <div className="flex flex-col items-center gap-3">
-                       <Hexagon className="w-12 h-12 text-slate-200" />
-                       <p className="font-serif text-lg">No words found</p>
-                       {(searchTerm || selectedLetter) && <p className="text-sm">Try adjusting your filters.</p>}
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+            </div>
+          ) : (
+            <div className="p-20 text-center text-slate-300">
+              <BookOpen className="w-12 h-12 mx-auto mb-2 opacity-20" />
+              <p className="font-bold text-sm uppercase">No matches found</p>
+            </div>
+          )}
         </div>
         
-        {/* Footer */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50 text-xs text-center text-slate-500 uppercase tracking-widest font-semibold">
-           Displaying {filteredWords.length} Words
+        <div className="bg-[#003366] p-3 text-center text-[10px] text-blue-200 font-bold uppercase tracking-[0.2em]">
+          Total: {filteredWords.length} Official Entry Words
         </div>
       </div>
     </div>
