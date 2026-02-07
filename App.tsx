@@ -5,7 +5,7 @@ import { WordListView } from './components/WordListView';
 import { LegalModal } from './components/LegalModal';
 import { wordList } from './data/wordList';
 import { Difficulty, SpellingWord } from './types';
-import { Shuffle, Hexagon, Trash2, ListFilter } from 'lucide-react';
+import { Shuffle, Hexagon, Trash2 } from 'lucide-react';
 
 type ViewState = 'GAME' | 'LIST';
 type SessionDifficulty = Difficulty | 'ALL';
@@ -14,15 +14,6 @@ interface SessionConfig {
   difficulty: SessionDifficulty;
   letter: string | null;
 }
-
-const shuffleArray = (array: SpellingWord[]) => {
-  const newArray = [...array];
-  for (let i = newArray.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
-  }
-  return newArray;
-};
 
 const beeLevels = [Difficulty.ONE_BEE, Difficulty.TWO_BEE, Difficulty.THREE_BEE];
 const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
@@ -35,8 +26,6 @@ function App() {
   const [hasConsent, setHasConsent] = useState(false);
   const [initialIndex, setInitialIndex] = useState(0);
   const [currentView, setCurrentView] = useState<ViewState>('GAME');
-  
-  // Default to Light Mode (false) initially
   const [darkMode, setDarkMode] = useState(false);
   
   const [sessionConfig, setSessionConfig] = useState<SessionConfig>({ 
@@ -46,52 +35,66 @@ function App() {
   const [activeWordList, setActiveWordList] = useState<SpellingWord[]>([]);
   const [solvedWordIds, setSolvedWordIds] = useState<Set<string>>(new Set());
 
-  // Initial Load: Check preferences
+  // Initialization Effect
   useEffect(() => {
-    const cachedConsent = localStorage.getItem('js_gh_consent_accepted');
-    if (cachedConsent === 'true') setHasConsent(true);
+    try {
+      const cachedConsent = localStorage.getItem('js_gh_consent_accepted');
+      if (cachedConsent === 'true') setHasConsent(true);
 
-    const cachedSolved = localStorage.getItem('bee_judge_solved_ids');
-    if (cachedSolved) {
-      try {
-        setSolvedWordIds(new Set(JSON.parse(cachedSolved)));
-      } catch (e) { console.error(e); }
+      const cachedSolved = localStorage.getItem('bee_judge_solved_ids');
+      if (cachedSolved) {
+        try {
+          const parsed = JSON.parse(cachedSolved);
+          if (Array.isArray(parsed)) {
+            setSolvedWordIds(new Set(parsed));
+          }
+        } catch (e) { 
+          console.warn("Could not parse solved words cache", e); 
+        }
+      }
+
+      const cachedTheme = localStorage.getItem('js_gh_theme');
+      if (cachedTheme === 'dark') {
+        setDarkMode(true);
+      }
+    } catch (e) {
+      console.warn("Storage access failed during init", e);
+    } finally {
+      // Always stop loading to prevent white screen
+      setLoading(false);
     }
-
-    // Check for explicit dark theme preference. 
-    const cachedTheme = localStorage.getItem('js_gh_theme');
-    if (cachedTheme === 'dark') {
-      setDarkMode(true);
-    } else {
-      setDarkMode(false);
-    }
-
-    setLoading(false);
   }, []);
 
-  // Sync DOM with darkMode state to prevent "white flash" and fix non-working toggle
+  // Theme Sync
   useEffect(() => {
     const html = document.documentElement;
+    const body = document.body;
     if (darkMode) {
       html.classList.add('dark');
-      html.style.backgroundColor = '#020617'; // slate-950
+      body.classList.add('dark');
+      html.style.backgroundColor = '#020617';
     } else {
       html.classList.remove('dark');
-      html.style.backgroundColor = '#f8fafc'; // slate-50
+      body.classList.remove('dark');
+      html.style.backgroundColor = '#f8fafc';
     }
   }, [darkMode]);
 
   const toggleDarkMode = () => {
     setDarkMode(prev => {
       const next = !prev;
-      localStorage.setItem('js_gh_theme', next ? 'dark' : 'light');
+      try {
+        localStorage.setItem('js_gh_theme', next ? 'dark' : 'light');
+      } catch (e) {}
       return next;
     });
   };
 
   const handleAcceptConsent = () => {
     setHasConsent(true);
-    localStorage.setItem('js_gh_consent_accepted', 'true');
+    try {
+      localStorage.setItem('js_gh_consent_accepted', 'true');
+    } catch (e) {}
   };
 
   useEffect(() => {
@@ -108,16 +111,9 @@ function App() {
       words = words.filter(w => w.word.toLowerCase().startsWith(letter.toLowerCase()));
     }
 
-    // Maintain natural order by default to ensure "starting from the first word" logic works
-    // Shuffling is only done if the user specifically chooses "Grand Finale Mix" (difficulty 'ALL')
-    // but here we allow sorting by default to be predictable.
+    // Default sorting
     if (difficulty === 'ALL' && !letter) {
-      // Shuffling can stay as an option, but we prefer a fixed sequence if requested
-      // For now, let's keep it sorted alphabetically unless randomized
       words.sort((a, b) => a.word.localeCompare(b.word));
-    } else {
-      // Already in list order or filter order
-      // We don't force sort if it's already structured in wordList.ts
     }
 
     setActiveWordList(words);
@@ -129,15 +125,19 @@ function App() {
     setSolvedWordIds(prev => {
       const next = new Set(prev);
       next.add(id);
-      localStorage.setItem('bee_judge_solved_ids', JSON.stringify(Array.from(next)));
+      try {
+        localStorage.setItem('bee_judge_solved_ids', JSON.stringify(Array.from(next)));
+      } catch (e) {}
       return next;
     });
   };
 
   const resetAllProgress = () => {
-    if (confirm("Reset all solved word progress?")) {
+    if (window.confirm("Reset all solved word progress?")) {
       setSolvedWordIds(new Set());
-      localStorage.removeItem('bee_judge_solved_ids');
+      try {
+        localStorage.removeItem('bee_judge_solved_ids');
+      } catch (e) {}
     }
   };
 
@@ -155,8 +155,6 @@ function App() {
       />
       
       <main className="flex-grow flex flex-col items-center justify-start py-6 px-4 w-full max-w-4xl mx-auto overflow-x-hidden">
-        
-        {/* Session Config */}
         <div className="w-full space-y-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
              <button

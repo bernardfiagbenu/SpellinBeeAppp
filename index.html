@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en" class="bg-[#f8fafc] dark:bg-slate-950">
+<html lang="en" class="bg-[#f8fafc] dark:bg-slate-950" style="height: 100%; -webkit-text-size-adjust: 100%;">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Junior Speller GH - Official Competition App</title>
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="./logo.png" />
@@ -28,17 +28,35 @@
         --js-gold: #FFD700;
       }
       
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #f8fafc;
+      }
+
+      body.dark {
+        background-color: #020617;
+      }
+      
       body {
         font-family: 'Montserrat', sans-serif;
         -webkit-tap-highlight-color: transparent;
         overflow-x: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      
+      #root {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
       }
       
       .serif {
         font-family: 'Playfair Display', serif;
       }
       
-      /* Mobile optimization for long words */
       .word-input {
         font-size: clamp(1.2rem, 7vw, 2.2rem);
       }
@@ -66,8 +84,13 @@
 }
 </script>
 </head>
-  <body class="bg-[#f8fafc] dark:bg-slate-950 transition-colors duration-300 min-h-screen">
-    <div id="root"></div>
+  <body class="bg-[#f8fafc] dark:bg-slate-950 transition-colors duration-300">
+    <div id="root">
+      <!-- Minimal fallback to show while JS loads -->
+      <div style="display:flex; height:100vh; width:100vw; align-items:center; justify-content:center; background:#f8fafc;">
+        <div style="text-align:center; font-family:sans-serif; color:#003366; font-weight:800; letter-spacing:0.2em; font-size:12px;">LOADING JUNIOR SPELLER...</div>
+      </div>
+    </div>
     <script type="module" src="./index.tsx"></script>
   </body>
 </html>

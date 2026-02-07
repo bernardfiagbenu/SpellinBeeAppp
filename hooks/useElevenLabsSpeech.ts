@@ -5,8 +5,9 @@ import { decodeBase64, decodeAudioData as decodePCM } from '../utils/audioUtils'
 const ELEVEN_LABS_API_KEY = "ed720c4eba00f686859201fcc4c8b88a7ebc0e8a2e16136f8d836bc8ca378f6c";
 const VOICE_ID = "pNInz6obpg8n9Y99RRGP"; 
 
-// Initialize Gemini as the primary reliable free TTS engine
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+// Safety check for process.env (common mobile browser crash point)
+const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) ? process.env.API_KEY : '';
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 export const useElevenLabsSpeech = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -28,6 +29,9 @@ export const useElevenLabsSpeech = () => {
   }, []);
 
   const speakWithGemini = async (text: string, onEnd?: () => void) => {
+    if (!ai) {
+      throw new Error("AI not initialized");
+    }
     try {
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
@@ -62,7 +66,6 @@ export const useElevenLabsSpeech = () => {
       source.start();
       currentSourceRef.current = source;
     } catch (e) {
-      // Final silent fallback to browser engine if both cloud services are unreachable
       setIsSpeaking(false);
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.onend = () => onEnd?.();
@@ -75,11 +78,9 @@ export const useElevenLabsSpeech = () => {
     setIsGenerating(true);
 
     try {
-      // Attempt Gemini first as the reliable free-tier choice
       await speakWithGemini(text, onEnd);
       setIsGenerating(false);
     } catch (error) {
-      // Silent attempt at ElevenLabs if Gemini fails for some reason
       try {
         const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
           method: 'POST',
@@ -107,7 +108,10 @@ export const useElevenLabsSpeech = () => {
         }
       } catch (e) {
         setIsGenerating(false);
-        onEnd?.();
+        // Fallback to browser
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.onend = () => onEnd?.();
+        window.speechSynthesis.speak(utterance);
       }
     }
   }, [stop]);
