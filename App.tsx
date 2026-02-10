@@ -60,7 +60,6 @@ function App() {
     } catch (e) {
       console.warn("Storage access failed during init", e);
     } finally {
-      // Always stop loading to prevent white screen
       setLoading(false);
     }
   }, []);
@@ -111,7 +110,6 @@ function App() {
       words = words.filter(w => w.word.toLowerCase().startsWith(letter.toLowerCase()));
     }
 
-    // Default sorting
     if (difficulty === 'ALL' && !letter) {
       words.sort((a, b) => a.word.localeCompare(b.word));
     }
@@ -133,7 +131,7 @@ function App() {
   };
 
   const resetAllProgress = () => {
-    if (window.confirm("Reset all solved word progress?")) {
+    if (window.confirm("Delete all spelling history and trophies?")) {
       setSolvedWordIds(new Set());
       try {
         localStorage.removeItem('bee_judge_solved_ids');
@@ -154,34 +152,35 @@ function App() {
         onToggleDarkMode={toggleDarkMode}
       />
       
-      <main className="flex-grow flex flex-col items-center justify-start py-6 px-4 w-full max-w-4xl mx-auto overflow-x-hidden">
-        <div className="w-full space-y-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <main className="flex-grow flex flex-col items-center justify-start py-4 px-4 w-full max-w-2xl mx-auto overflow-x-hidden">
+        {/* Level & Filter Section */}
+        <div className="w-full space-y-3 mb-6">
+          <div className="flex flex-col sm:flex-row gap-2">
              <button
                onClick={() => setSessionConfig({ difficulty: 'ALL', letter: null })}
-               className={`flex items-center gap-3 px-6 py-4 font-black text-sm transition-all rounded-2xl ${
+               className={`flex-1 flex items-center justify-center gap-3 px-6 py-5 font-black text-xs transition-all rounded-2xl border-2 active:scale-95 ${
                  sessionConfig.difficulty === 'ALL' && !sessionConfig.letter
-                   ? 'bg-[#003366] text-[#FFD700] shadow-xl dark:shadow-[#FFD700]/5'
-                   : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-2 border-slate-100 dark:border-slate-800 shadow-sm'
+                   ? 'bg-jsBlue text-jsGold border-jsBlue shadow-lg'
+                   : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-100 dark:border-slate-800 shadow-sm'
                }`}
              >
-               <Shuffle className="w-5 h-5" />
-               <span className="uppercase tracking-[0.1em]">Grand Finale Mix</span>
+               <Shuffle className="w-4 h-4" />
+               <span className="uppercase tracking-widest">Master Mix</span>
              </button>
 
-             <div className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 p-2 rounded-2xl flex gap-2">
+             <div className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 p-2 rounded-2xl flex gap-2 flex-[2]">
                 {beeLevels.map(level => (
                   <button
                     key={level}
                     onClick={() => setSessionConfig(prev => ({ ...prev, difficulty: level }))}
-                    className={`flex-1 flex flex-col items-center justify-center p-2 font-black text-[9px] transition-all rounded-xl border-2 ${
+                    className={`flex-1 flex flex-col items-center justify-center p-2.5 font-black text-[8px] md:text-[9px] transition-all rounded-xl border-2 active:scale-95 ${
                       sessionConfig.difficulty === level
-                        ? 'bg-[#003366] text-[#FFD700] border-[#003366]'
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-transparent hover:border-slate-200 dark:hover:border-slate-700'
+                        ? 'bg-jsBlue text-jsGold border-jsBlue shadow-md'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-transparent'
                     }`}
                   >
-                    <Hexagon className={`w-4 h-4 mb-1 ${sessionConfig.difficulty === level ? 'fill-[#FFD700]' : ''}`} />
-                    {level.toUpperCase()}
+                    <Hexagon className={`w-3.5 h-3.5 mb-1 ${sessionConfig.difficulty === level ? 'fill-jsGold' : ''}`} />
+                    {level.replace('_BEE', '').toUpperCase()}
                   </button>
                 ))}
              </div>
@@ -191,18 +190,18 @@ function App() {
              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
                 <button
                   onClick={() => setSessionConfig(prev => ({ ...prev, letter: null }))}
-                  className={`px-4 py-2 text-[10px] font-black shrink-0 rounded-full border-2 transition-all uppercase tracking-widest ${
-                    !sessionConfig.letter ? 'bg-[#FFD700] border-[#003366] text-[#003366]' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400 dark:text-slate-500'
+                  className={`px-4 py-2 text-[9px] font-black shrink-0 rounded-full border-2 transition-all uppercase tracking-widest ${
+                    !sessionConfig.letter ? 'bg-jsGold border-jsBlue text-jsBlue shadow-md' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400 dark:text-slate-500'
                   }`}
                 >
-                  All A-Z
+                  A-Z
                 </button>
                 {alphabet.map(letter => (
                   <button
                     key={letter}
                     onClick={() => setSessionConfig(prev => ({ ...prev, letter }))}
-                    className={`h-10 w-10 flex items-center justify-center text-xs font-black shrink-0 rounded-full border-2 transition-all ${
-                      sessionConfig.letter === letter ? 'bg-[#FFD700] border-[#003366] text-[#003366] scale-110' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400 dark:text-slate-500'
+                    className={`h-9 w-9 flex items-center justify-center text-[10px] font-black shrink-0 rounded-full border-2 transition-all active:scale-110 ${
+                      sessionConfig.letter === letter ? 'bg-jsGold border-jsBlue text-jsBlue shadow-md scale-105' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400 dark:text-slate-500'
                     }`}
                   >
                     {letter}
@@ -212,6 +211,7 @@ function App() {
           </div>
         </div>
 
+        {/* Game Area */}
         {currentView === 'GAME' ? (
           <div className="w-full">
              {activeWordList.length > 0 ? (
@@ -223,10 +223,10 @@ function App() {
                   onWordSolved={handleWordSolved}
                />
              ) : (
-               <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-800 w-full">
-                  <Hexagon className="w-12 h-12 text-slate-200 dark:text-slate-800 mx-auto mb-4" />
-                  <p className="font-black text-slate-400 uppercase tracking-widest text-sm">No Words Found</p>
-                  <button onClick={() => setSessionConfig(p => ({...p, letter: null}))} className="mt-4 text-[#003366] dark:text-blue-400 font-black text-xs uppercase tracking-widest underline">Reset Filter</button>
+               <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800 w-full animate-in fade-in zoom-in-95">
+                  <Hexagon className="w-12 h-12 text-slate-100 dark:text-slate-800 mx-auto mb-4" />
+                  <p className="font-black text-slate-400 uppercase tracking-widest text-xs">Category empty</p>
+                  <button onClick={() => setSessionConfig(p => ({...p, letter: null}))} className="mt-4 text-jsBlue dark:text-blue-400 font-black text-[10px] uppercase tracking-widest underline">Reset filter</button>
                </div>
              )}
           </div>
@@ -241,24 +241,24 @@ function App() {
         )}
       </main>
       
-      <footer className="bg-[#003366] dark:bg-slate-950 text-white py-12 text-center mt-auto border-t-[10px] border-[#FFD700]">
+      <footer className="bg-jsBlue dark:bg-slate-950 text-white py-12 text-center mt-auto border-t-[8px] border-jsGold">
         <div className="max-w-4xl mx-auto px-6 flex flex-col items-center">
           <img 
             src={logoUrl} 
             alt="Junior Speller Logo" 
-            className="h-24 w-auto mb-6"
+            className="h-20 w-auto mb-6"
           />
-          <p className="text-[#FFD700] text-[10px] font-black uppercase tracking-[0.5em] mb-8">Learn Earn and Spell like a Champion</p>
+          <p className="text-jsGold text-[9px] font-black uppercase tracking-[0.4em] mb-10">Learn Earn and Spell like a Champion</p>
           
           <button 
             onClick={resetAllProgress}
-            className="text-[9px] font-black text-blue-300 dark:text-slate-500 hover:text-white transition-colors uppercase tracking-[0.3em] flex items-center gap-2 border border-blue-400/20 dark:border-slate-800 px-4 py-2 rounded-full"
+            className="text-[8px] font-black text-blue-300/60 hover:text-white transition-all uppercase tracking-[0.2em] flex items-center gap-2 border border-blue-400/10 px-5 py-2.5 rounded-full hover:bg-blue-900/40"
           >
-            <Trash2 className="w-3 h-3" /> Clear Cached Progress
+            <Trash2 className="w-3 h-3" /> Factory Reset App Data
           </button>
           
-          <p className="text-blue-400/40 dark:text-slate-700 text-[9px] mt-10 uppercase tracking-[0.2em] font-bold italic">
-            Official Junior Speller GH Digital Platform
+          <p className="text-blue-400/20 dark:text-slate-800 text-[8px] mt-12 uppercase tracking-[0.2em] font-bold">
+            © 2026 Junior Speller GH Digital Arena
           </p>
         </div>
       </footer>

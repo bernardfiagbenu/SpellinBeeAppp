@@ -2,8 +2,10 @@ import { useState, useCallback, useRef } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { decodeBase64, decodeAudioData as decodePCM } from '../utils/audioUtils';
 
-// Legacy name kept for compatibility, but powered by the ultimate Gemini TTS engine.
-const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) ? process.env.API_KEY : '';
+// Helper to get API key safely
+const getApiKey = () => {
+  return (typeof process !== 'undefined' && process.env?.API_KEY) ? process.env.API_KEY : '';
+};
 
 export const useElevenLabsSpeech = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -23,17 +25,21 @@ export const useElevenLabsSpeech = () => {
   }, []);
 
   const speakWithGemini = async (text: string, onEnd?: () => void) => {
-    // We instantiate inside to ensure the latest API key from context is used
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      console.warn("API Key missing, falling back to browser TTS.");
+      throw new Error("No API Key");
+    }
+
     const ai = new GoogleGenAI({ apiKey });
 
     try {
-      // 'Puck' is the superior choice for high-definition phonemic clarity.
-      // We instruct the AI to act as an expert judge to ensure difficult letters (S/F, B/P) are distinct.
+      // 'Puck' is selected for superior vowel-consonant separation on mobile speakers.
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ 
           parts: [{ 
-            text: `As an expert International Spelling Bee judge and phonetics specialist, pronounce the word "${text}" with absolute precision. Speak slowly, emphasize every individual syllable, and ensure consonants are sharp and unmistakable.` 
+            text: `Pronounce the word "${text}" as an official spelling bee judge. Speak slowly, clearly, and emphasize the syllables. Do not include extra commentary.` 
           }] 
         }],
         config: {
@@ -63,9 +69,8 @@ export const useElevenLabsSpeech = () => {
       const source = audioContextRef.current.createBufferSource();
       source.buffer = audioBuffer;
       
-      // Clarity boost for mobile speakers
       const gainNode = audioContextRef.current.createGain();
-      gainNode.gain.value = 1.35; 
+      gainNode.gain.value = 1.4; // High-definition boost for small mobile drivers
       source.connect(gainNode);
       gainNode.connect(audioContextRef.current.destination);
       
@@ -78,10 +83,10 @@ export const useElevenLabsSpeech = () => {
       source.start(0);
       currentSourceRef.current = source;
     } catch (e) {
-      console.warn("Gemini TTS failed, using browser fallback", e);
+      console.warn("Gemini TTS failed:", e);
       setIsSpeaking(false);
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.75; 
+      utterance.rate = 0.8; 
       utterance.onend = () => onEnd?.();
       window.speechSynthesis.speak(utterance);
     }
