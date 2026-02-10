@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, HelpCircle, Mic, MicOff, Keyboard, Eye, Timer, ChevronLeft, ChevronRight, Award, RotateCcw, Lightbulb, AlertCircle, Trash2 } from 'lucide-react';
+import { Volume2, HelpCircle, Mic, MicOff, Keyboard, Eye, Timer, ChevronLeft, ChevronRight, Award, RotateCcw, Lightbulb, AlertCircle, Loader2 } from 'lucide-react';
 import { SpellingWord } from '../types';
 import { useElevenLabsSpeech } from '../hooks/useElevenLabsSpeech';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
@@ -18,13 +19,14 @@ const GAME_TIMER_SECONDS = 80;
 export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex, solvedWordIds, onWordSolved }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [userInput, setUserInput] = useState('');
-  const [status, setStatus] = useState<'IDLE' | 'CORRECT' | 'WRONG'>('IDLE');
+  const [status, setStatus] = useState<'IDLE' | 'CORRECT' | 'WRONG' | 'JUDGING'>('IDLE');
   const [revealDefinition, setRevealDefinition] = useState(false);
   const [inputMode, setInputMode] = useState<'VOICE' | 'KEYBOARD'>('VOICE');
   const [timeLeft, setTimeLeft] = useState(GAME_TIMER_SECONDS);
   const [hintUsed, setHintUsed] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
+  const wasListeningRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const { speak, isSpeaking, stop: stopSpeaking } = useElevenLabsSpeech();
@@ -75,36 +77,49 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
   const nextWord = () => !isLastWord && setCurrentIndex(p => p + 1);
   const prevWord = () => !isFirstWord && setCurrentIndex(p => p - 1);
 
+  // Fix: Implemented the useHint function to provide a first-letter clue to the student.
+  const useHint = () => {
+    if (hintUsed || status !== 'IDLE') return;
+    setHintUsed(true);
+    const firstLetter = currentWord.word.charAt(0).toUpperCase();
+    speak(`The word starts with the letter ${firstLetter}.`);
+  };
+
   const checkSpelling = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!userInput.trim()) return;
+    if (!userInput.trim() || status === 'JUDGING' || status === 'CORRECT') return;
 
+    setStatus('JUDGING');
     const cleanedInput = userInput.trim().toLowerCase();
     const target = currentWord.word.toLowerCase();
     const altTarget = currentWord.altSpelling?.toLowerCase();
 
-    if (cleanedInput === target || cleanedInput === altTarget) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      setStatus('CORRECT');
-      onWordSolved(currentWord);
-      triggerConfetti();
-      speak(`Correct! well done.`);
-      setTimeout(nextWord, 1800);
-    } else {
-      setStatus('WRONG');
-      setRevealDefinition(true);
-      speak(`Incorrect.`);
-    }
+    // Small delay to simulate the "Judge" thinking
+    setTimeout(() => {
+      if (cleanedInput === target || cleanedInput === altTarget) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        setStatus('CORRECT');
+        onWordSolved(currentWord);
+        triggerConfetti();
+        speak(`Correct! well done.`);
+        setTimeout(nextWord, 1800);
+      } else {
+        setStatus('WRONG');
+        setRevealDefinition(true);
+        speak(`Incorrect.`);
+      }
+    }, 400);
   };
 
-  const useHint = () => {
-    if (hintUsed || status !== 'IDLE') return;
-    setHintUsed(true);
-    setRevealDefinition(true);
-    const firstLetter = currentWord.word.charAt(0).toUpperCase();
-    setUserInput(firstLetter);
-    speak(`The word starts with ${firstLetter}.`);
-  };
+  // VITAL: Automatic validation only for Voice mode when speech stops
+  useEffect(() => {
+    if (wasListeningRef.current && !isListening && inputMode === 'VOICE') {
+      if (userInput.trim().length > 0 && status === 'IDLE') {
+        checkSpelling();
+      }
+    }
+    wasListeningRef.current = isListening;
+  }, [isListening, inputMode, userInput, status]);
 
   return (
     <div className="w-full flex flex-col gap-3 max-w-lg mx-auto pb-8">
@@ -115,7 +130,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
       <div className="flex justify-between items-center px-4">
         <button 
           onClick={prevWord} 
-          disabled={isFirstWord} 
+          disabled={isFirstWord || status === 'JUDGING'} 
           className="p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-300 hover:text-jsBlue disabled:opacity-30 transition-all border border-slate-100 dark:border-slate-700"
         >
           <ChevronLeft className="w-6 h-6" />
@@ -126,7 +141,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
         </div>
         <button 
           onClick={nextWord} 
-          disabled={isLastWord} 
+          disabled={isLastWord || status === 'JUDGING'} 
           className="p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-300 hover:text-jsBlue disabled:opacity-30 transition-all border border-slate-100 dark:border-slate-700"
         >
           <ChevronRight className="w-6 h-6" />
@@ -145,7 +160,8 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
         <div className="flex flex-col items-center gap-4 pt-4">
           <button 
             onClick={() => speak(currentWord.word)}
-            className={`w-24 h-24 md:w-28 md:h-28 bg-jsBlue dark:bg-blue-700 text-jsGold rounded-full flex items-center justify-center shadow-xl border-4 border-white dark:border-slate-800 transform transition-all active:scale-90 ${isSpeaking ? 'ring-8 ring-jsGold/20 scale-105' : ''}`}
+            disabled={status === 'JUDGING'}
+            className={`w-24 h-24 md:w-28 md:h-28 bg-jsBlue dark:bg-blue-700 text-jsGold rounded-full flex items-center justify-center shadow-xl border-4 border-white dark:border-slate-800 transform transition-all active:scale-90 ${isSpeaking ? 'ring-8 ring-jsGold/20 scale-105' : ''} disabled:opacity-50`}
           >
             <Volume2 className={`w-10 h-10 md:w-12 md:h-12 ${isSpeaking ? 'animate-pulse' : ''}`} />
           </button>
@@ -180,10 +196,10 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
               onClick={() => { setInputMode(inputMode === 'VOICE' ? 'KEYBOARD' : 'VOICE'); setStatus('IDLE'); }} 
               className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5 transition-colors"
             >
-              {inputMode === 'VOICE' ? <><Keyboard className="w-3.5 h-3.5" /> Type</> : <><Mic className="w-3.5 h-3.5" /> Voice</>}
+              {inputMode === 'VOICE' ? <><Keyboard className="w-3.5 h-3.5" /> Type Answer</> : <><Mic className="w-3.5 h-3.5" /> Voice Entry</>}
             </button>
             
-            {userInput && (
+            {userInput && status !== 'CORRECT' && (
               <button 
                 onClick={() => { setUserInput(''); resetTranscript(); setStatus('IDLE'); }} 
                 className="text-[9px] font-black text-red-500 uppercase tracking-widest flex items-center gap-1.5 px-2 py-1 hover:bg-red-50 rounded-lg transition-all"
@@ -199,16 +215,24 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
                 <span className="text-green-600 font-black italic serif text-xs animate-bounce tracking-widest">PERFECT!</span>
               </div>
             )}
+            
+            {status === 'JUDGING' && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-slate-900/60 z-10 rounded-2xl">
+                <div className="flex items-center gap-2 text-jsBlue dark:text-blue-400 font-black text-xs uppercase tracking-widest">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Judging...
+                </div>
+              </div>
+            )}
 
             <input
               ref={inputRef}
               type="text"
               value={userInput}
-              readOnly={inputMode === 'VOICE'}
+              readOnly={inputMode === 'VOICE' || status === 'JUDGING'}
               onChange={(e) => { setStatus('IDLE'); setUserInput(e.target.value); }}
               placeholder={inputMode === 'VOICE' ? (isListening ? "Listening..." : "Tap Mic") : "Start spelling..."}
               className={`w-full text-center word-input font-black py-7 md:py-9 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-4 outline-none transition-all uppercase tracking-[0.2em] font-serif
-                ${status === 'IDLE' ? 'border-slate-100 dark:border-slate-800 focus:border-jsBlue text-slate-900 dark:text-white' : ''}
+                ${status === 'IDLE' || status === 'JUDGING' ? 'border-slate-100 dark:border-slate-800 focus:border-jsBlue text-slate-900 dark:text-white' : ''}
                 ${status === 'CORRECT' ? 'border-green-400 text-green-700 bg-green-50' : ''}
                 ${status === 'WRONG' ? 'border-red-500 text-red-600 bg-red-50' : ''}
               `}
@@ -220,7 +244,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
             <div className="flex flex-col items-center gap-3">
               <button 
                 onClick={() => { resetTranscript(); setUserInput(''); startListening(); }}
-                disabled={isListening || isSpeaking}
+                disabled={isListening || isSpeaking || status === 'JUDGING'}
                 className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all shadow-lg border-4 border-white dark:border-slate-800 ${isListening ? 'bg-red-600 text-white animate-pulse ring-8 ring-red-100' : 'bg-jsBlue dark:bg-blue-700 text-white hover:bg-slate-900'}`}
               >
                 {isListening ? <MicOff className="w-7 h-7" /> : <Mic className="w-7 h-7" />}
@@ -233,7 +257,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
                   </p>
                 ) : (
                   <p className={`text-[8px] font-black uppercase tracking-widest ${isListening ? 'text-red-600 animate-pulse' : 'text-slate-400'}`}>
-                    {isListening ? 'Recording Answer' : 'Tap to Voice Entry'}
+                    {isListening ? 'Validation starts when you stop' : 'Tap to Voice Entry'}
                   </p>
                 )}
               </div>
@@ -243,7 +267,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
           {inputMode === 'KEYBOARD' && status === 'IDLE' && (
             <button 
               onClick={checkSpelling} 
-              disabled={!userInput.trim()} 
+              disabled={!userInput.trim() || status === 'JUDGING'} 
               className="w-full bg-jsBlue dark:bg-blue-700 text-jsGold py-4 md:py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-50"
             >
               Verify Submission

@@ -3,8 +3,8 @@ import { useState, useCallback, useRef } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { decodeBase64, decodeAudioData } from '../utils/audioUtils';
 
-// Initialize the Gemini AI client. The API Key is expected to be in the environment variables.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+// Initialize the Gemini AI client using the process.env.API_KEY strictly as required.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const useGeminiSpeech = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
