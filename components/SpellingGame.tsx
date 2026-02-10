@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, HelpCircle, CheckCircle, XCircle, AlertCircle, Mic, MicOff, Keyboard, Eye, Timer, ChevronLeft, ChevronRight, Award, RotateCcw, Lightbulb, Loader2, AlertTriangle } from 'lucide-react';
-import { SpellingWord, Difficulty } from '../types';
+import { Volume2, HelpCircle, Mic, MicOff, Keyboard, Eye, Timer, ChevronLeft, ChevronRight, Award, RotateCcw, Lightbulb, AlertCircle, Trash2 } from 'lucide-react';
+import { SpellingWord } from '../types';
 import { useElevenLabsSpeech } from '../hooks/useElevenLabsSpeech';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { triggerConfetti } from '../utils/confetti';
@@ -20,17 +20,14 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
   const [userInput, setUserInput] = useState('');
   const [status, setStatus] = useState<'IDLE' | 'CORRECT' | 'WRONG'>('IDLE');
   const [revealDefinition, setRevealDefinition] = useState(false);
-  const [hasSpoken, setHasSpoken] = useState(false);
   const [inputMode, setInputMode] = useState<'VOICE' | 'KEYBOARD'>('VOICE');
-  const [attempts, setAttempts] = useState(0);
   const [timeLeft, setTimeLeft] = useState(GAME_TIMER_SECONDS);
   const [hintUsed, setHintUsed] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
-  const wasListeningRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
-  const { speak, isSpeaking, isGenerating, stop: stopSpeaking } = useElevenLabsSpeech();
+  const { speak, isSpeaking, stop: stopSpeaking } = useElevenLabsSpeech();
   const { isListening, transcript, interimTranscript, startListening, resetTranscript, error: speechError } = useSpeechRecognition();
   
   const currentWord = words[currentIndex];
@@ -47,9 +44,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
     setUserInput('');
     setStatus('IDLE');
     setRevealDefinition(false);
-    setHasSpoken(false);
     resetTranscript();
-    setAttempts(0);
     setTimeLeft(GAME_TIMER_SECONDS);
     setHintUsed(false);
     
@@ -88,135 +83,110 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
     const target = currentWord.word.toLowerCase();
     const altTarget = currentWord.altSpelling?.toLowerCase();
 
-    if (timerRef.current) clearInterval(timerRef.current);
-
     if (cleanedInput === target || cleanedInput === altTarget) {
+      if (timerRef.current) clearInterval(timerRef.current);
       setStatus('CORRECT');
       onWordSolved(currentWord);
       triggerConfetti();
-      speak(`Correct. Well done.`, () => {
-        setTimeout(nextWord, 1200);
-      });
+      speak(`Correct! well done.`);
+      setTimeout(nextWord, 1800);
     } else {
       setStatus('WRONG');
-      setAttempts(p => p + 1);
       setRevealDefinition(true);
-      speak(`That is incorrect.`);
+      speak(`Incorrect.`);
     }
   };
 
   const useHint = () => {
-    if (hintUsed || status !== 'IDLE' || isGenerating) return;
+    if (hintUsed || status !== 'IDLE') return;
     setHintUsed(true);
     setRevealDefinition(true);
     const firstLetter = currentWord.word.charAt(0).toUpperCase();
     setUserInput(firstLetter);
-    speak(`The word starts with the letter ${firstLetter}.`);
+    speak(`The word starts with ${firstLetter}.`);
   };
 
-  useEffect(() => {
-    if (wasListeningRef.current && !isListening && inputMode === 'VOICE' && userInput.trim().length > 0 && status === 'IDLE') {
-      checkSpelling();
-    }
-    wasListeningRef.current = isListening;
-  }, [isListening, inputMode, userInput, status]);
-
-  // Handle microphone usage: stop listening if judge starts speaking
-  useEffect(() => {
-    if (isSpeaking && isListening) {
-      // Browser recognition usually stops itself when audio output starts on some devices, 
-      // but we should manage it explicitly if possible.
-    }
-  }, [isSpeaking, isListening]);
-
   return (
-    <div className="w-full flex flex-col gap-3 max-w-lg mx-auto">
+    <div className="w-full flex flex-col gap-3 max-w-lg mx-auto pb-8">
       
       <ProgressBar current={currentIndex} total={words.length} level={currentWord.difficulty} />
 
-      {/* Navigation & Header */}
+      {/* Navigation Row */}
       <div className="flex justify-between items-center px-4">
         <button 
           onClick={prevWord} 
           disabled={isFirstWord} 
-          className="p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-300 hover:text-jsBlue dark:hover:text-jsGold disabled:opacity-30 transition-all border border-slate-100 dark:border-slate-700"
+          className="p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-300 hover:text-jsBlue disabled:opacity-30 transition-all border border-slate-100 dark:border-slate-700"
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
         <div className="text-center">
-          <h2 className="text-base font-black text-jsBlue dark:text-blue-400 uppercase tracking-tighter">{currentWord.difficulty}</h2>
-          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em]">{currentIndex + 1} / {words.length}</p>
+          <h2 className="text-sm font-black text-jsBlue dark:text-blue-400 uppercase tracking-widest">{currentWord.difficulty}</h2>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">{currentIndex + 1} / {words.length}</p>
         </div>
         <button 
           onClick={nextWord} 
           disabled={isLastWord} 
-          className="p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-300 hover:text-jsBlue dark:hover:text-jsGold disabled:opacity-30 transition-all border border-slate-100 dark:border-slate-700"
+          className="p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-300 hover:text-jsBlue disabled:opacity-30 transition-all border border-slate-100 dark:border-slate-700"
         >
           <ChevronRight className="w-6 h-6" />
         </button>
       </div>
 
-      <div className={`bg-white dark:bg-slate-900 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border-t-8 border-jsBlue dark:border-blue-600 overflow-hidden p-5 md:p-8 space-y-5 relative transition-all ${status === 'WRONG' ? 'animate-shake' : ''}`}>
+      <div className={`bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border-t-8 border-jsBlue dark:border-blue-600 p-5 md:p-8 space-y-5 relative transition-all ${status === 'WRONG' ? 'animate-shake' : ''}`}>
         
-        {isAlreadySolved && <div className="absolute top-4 right-6 text-green-500"><Award className="w-6 h-6" /></div>}
+        {isAlreadySolved && <div className="absolute top-4 right-6 text-green-500"><Award className="w-5 h-5" /></div>}
         
-        <div className={`absolute top-4 left-6 px-3 py-1 rounded-full text-[10px] font-black border flex items-center gap-1 transition-all ${timeLeft < 15 ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-100 dark:border-red-900/30 animate-pulse' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-100 dark:border-slate-700'}`}>
+        <div className={`absolute top-4 left-6 px-3 py-1 rounded-full text-[10px] font-black border flex items-center gap-1 transition-all ${timeLeft < 15 ? 'bg-red-50 text-red-600 border-red-100 animate-pulse' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
           <Timer className="w-3 h-3" /> {timeLeft}S
         </div>
 
-        {/* Word Speaker & Info Toggle */}
+        {/* Judge Section */}
         <div className="flex flex-col items-center gap-4 pt-4">
           <button 
-            onClick={() => { speak(currentWord.word); setHasSpoken(true); }}
-            disabled={isGenerating}
-            className={`w-24 h-24 md:w-32 md:h-32 bg-jsBlue dark:bg-blue-700 text-jsGold rounded-full flex items-center justify-center shadow-2xl border-4 border-white dark:border-slate-800 transform transition-all active:scale-90 disabled:opacity-80 ${isSpeaking ? 'ring-8 ring-jsGold/20 dark:ring-blue-500/20' : ''}`}
-            aria-label="Hear the word"
+            onClick={() => speak(currentWord.word)}
+            className={`w-24 h-24 md:w-28 md:h-28 bg-jsBlue dark:bg-blue-700 text-jsGold rounded-full flex items-center justify-center shadow-xl border-4 border-white dark:border-slate-800 transform transition-all active:scale-90 ${isSpeaking ? 'ring-8 ring-jsGold/20 scale-105' : ''}`}
           >
-            {isGenerating ? (
-              <Loader2 className="w-10 h-10 md:w-14 md:h-14 animate-spin" />
-            ) : (
-              <Volume2 className={`w-10 h-10 md:w-14 md:h-14 ${isSpeaking ? 'animate-pulse' : ''}`} />
-            )}
+            <Volume2 className={`w-10 h-10 md:w-12 md:h-12 ${isSpeaking ? 'animate-pulse' : ''}`} />
           </button>
           
           <div className="flex gap-2 w-full">
             <button 
               onClick={useHint} 
-              disabled={hintUsed || status !== 'IDLE' || isGenerating} 
-              className="flex-1 flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-800 hover:bg-jsGold hover:text-jsBlue text-jsBlue dark:text-blue-400 py-3.5 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase border border-slate-100 dark:border-slate-700 transition-all disabled:opacity-40"
+              disabled={hintUsed || status !== 'IDLE'} 
+              className="flex-1 flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-800 hover:bg-jsGold hover:text-jsBlue text-jsBlue dark:text-blue-400 py-3 rounded-xl font-black text-[10px] uppercase border border-slate-100 dark:border-slate-700 transition-all disabled:opacity-40"
             >
-              <Lightbulb className="w-4 h-4" /> {hintUsed ? 'Hint Applied' : 'Clue'}
+              <Lightbulb className="w-4 h-4" /> {hintUsed ? 'Clue Used' : 'Clue'}
             </button>
             <button 
               onClick={() => setRevealDefinition(!revealDefinition)} 
-              className="flex-1 flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-800 hover:bg-jsBlue dark:hover:bg-blue-600 hover:text-white text-jsBlue dark:text-blue-400 py-3.5 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase border border-slate-100 dark:border-slate-700 transition-all"
+              className="flex-1 flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-800 hover:bg-jsBlue dark:hover:bg-blue-600 hover:text-white text-jsBlue dark:text-blue-400 py-3 rounded-xl font-black text-[10px] uppercase border border-slate-100 dark:border-slate-700 transition-all"
             >
-              <HelpCircle className="w-4 h-4" /> {revealDefinition ? 'Hide Info' : 'Definition'}
+              <HelpCircle className="w-4 h-4" /> {revealDefinition ? 'Hide Info' : 'Meaning'}
             </button>
           </div>
 
           {revealDefinition && hasDefinition && (
-            <div className="w-full bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-2xl border-l-4 border-jsBlue dark:border-blue-600 animate-in fade-in slide-in-from-top-2 overflow-y-auto max-h-24 no-scrollbar">
-              <p className="text-jsBlue dark:text-blue-300 italic serif text-sm md:text-base leading-relaxed">"{currentWord.definition}"</p>
+            <div className="w-full bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border-l-4 border-jsBlue animate-in fade-in slide-in-from-top-2 max-h-24 overflow-y-auto no-scrollbar">
+              <p className="text-jsBlue dark:text-blue-300 italic serif text-sm leading-snug">"{currentWord.definition}"</p>
             </div>
           )}
         </div>
 
-        {/* Input Area */}
-        <div className="space-y-4 pt-2">
-          {/* Controls Row */}
-          <div className="flex justify-between items-end px-1 h-8">
+        {/* Input Controls */}
+        <div className="space-y-4">
+          <div className="flex justify-between items-center px-1">
             <button 
               onClick={() => { setInputMode(inputMode === 'VOICE' ? 'KEYBOARD' : 'VOICE'); setStatus('IDLE'); }} 
-              className="text-[8px] md:text-[9px] font-black text-slate-500 dark:text-slate-400 hover:text-jsBlue dark:hover:text-blue-400 uppercase tracking-widest flex items-center gap-1.5 transition-colors py-1.5"
+              className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5 transition-colors"
             >
-              {inputMode === 'VOICE' ? <><Keyboard className="w-3.5 h-3.5" /> Keyboard</> : <><Mic className="w-3.5 h-3.5" /> Voice Mode</>}
+              {inputMode === 'VOICE' ? <><Keyboard className="w-3.5 h-3.5" /> Type</> : <><Mic className="w-3.5 h-3.5" /> Voice</>}
             </button>
             
-            {userInput && status !== 'CORRECT' && (
+            {userInput && (
               <button 
                 onClick={() => { setUserInput(''); resetTranscript(); setStatus('IDLE'); }} 
-                className="text-[8px] md:text-[9px] font-black text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 px-3 py-1.5 rounded-lg uppercase tracking-widest flex items-center gap-1.5 transition-all border border-transparent hover:border-red-100 dark:hover:border-red-900/30"
+                className="text-[9px] font-black text-red-500 uppercase tracking-widest flex items-center gap-1.5 px-2 py-1 hover:bg-red-50 rounded-lg transition-all"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> Clear
               </button>
@@ -226,7 +196,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
           <div className="relative">
             {status === 'CORRECT' && (
               <div className="absolute -top-7 left-0 w-full flex justify-center pointer-events-none">
-                <span className="text-green-600 dark:text-green-400 font-black italic serif text-xs md:text-sm animate-bounce tracking-widest">PERFECT!</span>
+                <span className="text-green-600 font-black italic serif text-xs animate-bounce tracking-widest">PERFECT!</span>
               </div>
             )}
 
@@ -236,36 +206,34 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
               value={userInput}
               readOnly={inputMode === 'VOICE'}
               onChange={(e) => { setStatus('IDLE'); setUserInput(e.target.value); }}
-              placeholder={inputMode === 'VOICE' ? (isListening ? "I'm listening..." : "Tap the Mic") : "Spell here..."}
-              className={`w-full text-center word-input font-black py-7 md:py-10 bg-slate-50 dark:bg-slate-800/50 rounded-[1.5rem] md:rounded-[2rem] border-4 outline-none transition-all uppercase tracking-[0.2em] font-serif
-                ${status === 'IDLE' ? 'border-slate-100 dark:border-slate-800 focus:border-jsBlue dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white' : ''}
-                ${status === 'CORRECT' ? 'border-green-400 dark:border-green-600 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/10' : ''}
-                ${status === 'WRONG' ? 'border-red-500 dark:border-red-700 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10' : ''}
+              placeholder={inputMode === 'VOICE' ? (isListening ? "Listening..." : "Tap Mic") : "Start spelling..."}
+              className={`w-full text-center word-input font-black py-7 md:py-9 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-4 outline-none transition-all uppercase tracking-[0.2em] font-serif
+                ${status === 'IDLE' ? 'border-slate-100 dark:border-slate-800 focus:border-jsBlue text-slate-900 dark:text-white' : ''}
+                ${status === 'CORRECT' ? 'border-green-400 text-green-700 bg-green-50' : ''}
+                ${status === 'WRONG' ? 'border-red-500 text-red-600 bg-red-50' : ''}
               `}
               autoComplete="off" spellCheck="false"
             />
           </div>
 
           {inputMode === 'VOICE' && status === 'IDLE' && (
-            <div className="flex flex-col items-center gap-3 py-2">
+            <div className="flex flex-col items-center gap-3">
               <button 
                 onClick={() => { resetTranscript(); setUserInput(''); startListening(); }}
-                disabled={isListening || isSpeaking || isGenerating}
-                className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all shadow-xl border-4 border-white dark:border-slate-800 ${isListening ? 'bg-red-600 text-white animate-pulse ring-[12px] ring-red-100 dark:ring-red-900/20' : 'bg-jsBlue dark:bg-blue-700 text-white hover:bg-slate-900 dark:hover:bg-blue-600'}`}
-                aria-label={isListening ? "Stop listening" : "Start listening"}
+                disabled={isListening || isSpeaking}
+                className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all shadow-lg border-4 border-white dark:border-slate-800 ${isListening ? 'bg-red-600 text-white animate-pulse ring-8 ring-red-100' : 'bg-jsBlue dark:bg-blue-700 text-white hover:bg-slate-900'}`}
               >
-                {isListening ? <MicOff className="w-7 h-7 md:w-8 md:h-8" /> : <Mic className="w-7 h-7 md:w-8 md:h-8" />}
+                {isListening ? <MicOff className="w-7 h-7" /> : <Mic className="w-7 h-7" />}
               </button>
               
-              <div className="h-6 flex items-center justify-center">
+              <div className="h-4 flex items-center">
                 {speechError ? (
-                  <div className="flex items-center gap-1.5 text-red-500 dark:text-red-400 animate-in fade-in duration-300">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <p className="text-[9px] font-black uppercase tracking-widest">{speechError}</p>
-                  </div>
+                  <p className="text-[9px] font-black text-red-500 uppercase tracking-widest flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" /> {speechError}
+                  </p>
                 ) : (
-                  <p className={`text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em] ${isListening ? 'text-red-600 dark:text-red-400 animate-pulse' : 'text-slate-400 dark:text-slate-500'}`}>
-                    {isListening ? 'Capture Active' : 'Voice Entry Disabled'}
+                  <p className={`text-[8px] font-black uppercase tracking-widest ${isListening ? 'text-red-600 animate-pulse' : 'text-slate-400'}`}>
+                    {isListening ? 'Recording Answer' : 'Tap to Voice Entry'}
                   </p>
                 )}
               </div>
@@ -275,26 +243,26 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({ words, initialIndex,
           {inputMode === 'KEYBOARD' && status === 'IDLE' && (
             <button 
               onClick={checkSpelling} 
-              disabled={!userInput.trim() || isGenerating} 
-              className="w-full bg-jsBlue dark:bg-blue-700 text-jsGold py-5 md:py-6 rounded-xl md:rounded-2xl font-black text-xs md:text-sm uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all disabled:opacity-50"
+              disabled={!userInput.trim()} 
+              className="w-full bg-jsBlue dark:bg-blue-700 text-jsGold py-4 md:py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-50"
             >
-              Verify Spelling
+              Verify Submission
             </button>
           )}
 
           {status === 'WRONG' && (
-            <div className="flex flex-col gap-3 animate-in fade-in duration-300">
+            <div className="flex flex-col gap-2 animate-in fade-in">
               <button 
                 onClick={() => { setStatus('IDLE'); setUserInput(''); }} 
-                className="w-full bg-jsBlue dark:bg-blue-700 text-white py-4 rounded-xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all"
+                className="w-full bg-jsBlue text-white py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest"
               >
-                Try Current Word Again
+                Try Again
               </button>
               <button 
                 onClick={() => { setUserInput(currentWord.word); setStatus('IDLE'); }} 
-                className="w-full bg-white dark:bg-slate-800 border-2 border-jsBlue dark:border-blue-600 text-jsBlue dark:text-blue-400 py-4 rounded-xl font-black text-[10px] uppercase flex items-center justify-center gap-2 active:scale-95 transition-all"
+                className="w-full bg-white border-2 border-jsBlue text-jsBlue py-3.5 rounded-xl font-black text-[10px] uppercase flex items-center justify-center gap-2"
               >
-                <Eye className="w-4 h-4" /> Reveal Answer
+                <Eye className="w-4 h-4" /> Reveal Word
               </button>
             </div>
           )}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { ShieldCheck, Scale, Info, CheckCircle2 } from 'lucide-react';
+import { useElevenLabsSpeech } from '../hooks/useElevenLabsSpeech';
 
 interface LegalModalProps {
   onAccept: () => void;
@@ -7,6 +8,13 @@ interface LegalModalProps {
 
 export const LegalModal: React.FC<LegalModalProps> = ({ onAccept }) => {
   const logoUrl = "https://juniorspellergh.com/wp-content/uploads/2024/01/3d-junior-speller-logo-2048x1172.png";
+  const { initAudio } = useElevenLabsSpeech();
+
+  const handleAccept = () => {
+    // Warm up the audio engine on the first real user click
+    initAudio();
+    onAccept();
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
@@ -53,7 +61,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ onAccept }) => {
 
         <div className="p-6 md:p-8 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
           <button
-            onClick={onAccept}
+            onClick={handleAccept}
             className="w-full bg-[#003366] dark:bg-blue-700 hover:bg-[#002244] dark:hover:bg-blue-600 text-white font-black py-5 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 active:scale-[0.97] uppercase tracking-widest text-sm"
           >
             I Accept & I Am Ready
