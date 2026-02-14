@@ -26,29 +26,41 @@ const COUNTRIES = [
   { name: 'Kenya', code: 'KE' }
 ];
 
+// Fallback for non-secure contexts where crypto.randomUUID might be missing
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'user-' + Math.random().toString(36).substring(2, 15) + '-' + Date.now();
+};
+
 export const useUserIdentity = () => {
   const [identity, setIdentity] = useState<UserIdentity | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem('bee_user_identity');
-    if (stored) {
-      setIdentity(JSON.parse(stored));
-    } else {
-      const randomName = GENERATED_NAMES[Math.floor(Math.random() * GENERATED_NAMES.length)];
-      const randomCountry = COUNTRIES[Math.floor(Math.random() * COUNTRIES.length)];
-      const randomId = Math.floor(1000 + Math.random() * 9000);
-      const uniqueId = crypto.randomUUID();
-      
-      const newIdentity: UserIdentity = {
-        username: `${randomName}_${randomId}`,
-        avatarSeed: Math.random().toString(36).substring(7),
-        userId: uniqueId,
-        country: randomCountry.name,
-        countryCode: randomCountry.code
-      };
-      
-      localStorage.setItem('bee_user_identity', JSON.stringify(newIdentity));
-      setIdentity(newIdentity);
+    try {
+      const stored = localStorage.getItem('bee_user_identity');
+      if (stored) {
+        setIdentity(JSON.parse(stored));
+      } else {
+        const randomName = GENERATED_NAMES[Math.floor(Math.random() * GENERATED_NAMES.length)];
+        const randomCountry = COUNTRIES[Math.floor(Math.random() * COUNTRIES.length)];
+        const randomId = Math.floor(1000 + Math.random() * 9000);
+        const uniqueId = generateId();
+        
+        const newIdentity: UserIdentity = {
+          username: `${randomName}_${randomId}`,
+          avatarSeed: Math.random().toString(36).substring(7),
+          userId: uniqueId,
+          country: randomCountry.name,
+          countryCode: randomCountry.code
+        };
+        
+        localStorage.setItem('bee_user_identity', JSON.stringify(newIdentity));
+        setIdentity(newIdentity);
+      }
+    } catch (e) {
+      console.error("Identity generation failed", e);
     }
   }, []);
 
