@@ -8,7 +8,9 @@ interface HeaderProps {
   onViewChange?: (view: 'GAME' | 'LIST') => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
+  onShowLeaderboard: () => void;
   identity: UserIdentity | null;
+  userRank: number | string;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
@@ -16,7 +18,9 @@ export const Header: React.FC<HeaderProps> = ({
   onViewChange, 
   darkMode, 
   onToggleDarkMode, 
-  identity
+  onShowLeaderboard,
+  identity,
+  userRank
 }) => {
   const logoUrl = "https://juniorspellergh.com/wp-content/uploads/2024/01/3d-junior-speller-logo-2048x1172.png";
 
@@ -36,11 +40,12 @@ export const Header: React.FC<HeaderProps> = ({
           />
         </div>
 
-        {/* User Profile Chip - Now just a display, no leaderboard trigger */}
+        {/* User Profile Chip - Enhanced to ensure visibility */}
         <div className="flex-1 flex justify-center min-w-0">
           {identity ? (
             <div 
-              className="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-full px-2 py-1 sm:px-4 sm:py-2 shadow-sm min-w-0 max-w-[120px] sm:max-w-[200px]"
+              onClick={onShowLeaderboard}
+              className="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-full px-2 py-1 sm:px-4 sm:py-2 cursor-pointer hover:bg-white dark:hover:bg-slate-700 transition-all active:scale-95 shadow-sm min-w-0 max-w-[120px] sm:max-w-[200px]"
             >
               <div className={`w-6 h-6 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white shrink-0 mr-1 sm:mr-3 ${getAvatarStyle(identity.avatarSeed)}`}>
                 <User className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
@@ -56,7 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
                     className="w-3 h-2 sm:w-4 sm:h-2.5 object-cover rounded-[1px] shadow-sm" 
                   />
                   <span className="text-[7px] sm:text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest whitespace-nowrap">
-                    Speller
+                    #{userRank || '--'}
                   </span>
                 </div>
               </div>
