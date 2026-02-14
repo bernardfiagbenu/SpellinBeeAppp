@@ -136,7 +136,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, cur
 
         <div className="p-6 bg-slate-50 dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
            <p className="text-[8px] text-center font-black text-slate-400 uppercase tracking-[0.2em]">
-             Ranked by Score > Efficiency > Tenacity
+             Ranked by Score &gt; Efficiency &gt; Tenacity
            </p>
         </div>
       </div>
