@@ -40,7 +40,7 @@ export const Header: React.FC<HeaderProps> = ({
           />
         </div>
 
-        {/* User Profile Chip - Enhanced to ensure visibility */}
+        {/* User Profile Chip - Restored Leaderboard Access */}
         <div className="flex-1 flex justify-center min-w-0">
           {identity ? (
             <div 

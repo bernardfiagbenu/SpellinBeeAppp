@@ -7,75 +7,96 @@ export interface UserIdentity {
   userId: string;
   country: string;
   countryCode: string;
+  ipAddress?: string;
 }
 
 const GENERATED_NAMES = [
-  'WordWizard', 'Speller', 'BeeMaster', 'LexiconLegend', 'AlphaAce', 
-  'SpellBound', 'VocalVictor', 'OrthoStar', 'GlintSpeller', 'AzureAce',
+  'WordWizard', 'BeeMaster', 'LexiconLegend', 'AlphaAce', 
+  'SpellBound', 'VocalVictor', 'OrthoStar', 'AzureAce',
   'GoldGrammar', 'SilentSolver', 'MightyMorpheme', 'EpicEnunciator',
-  'ChampionSpeller', 'BeeKeepeer', 'VerbVanguard', 'PhonicPilot'
-];
-
-const COUNTRIES = [
-  { name: 'Ghana', code: 'GH' },
-  { name: 'Nigeria', code: 'NG' },
-  { name: 'USA', code: 'US' },
-  { name: 'UK', code: 'GB' },
-  { name: 'South Africa', code: 'ZA' },
-  { name: 'Canada', code: 'CA' },
-  { name: 'Kenya', code: 'KE' }
+  'ChampionSpeller', 'VerbVanguard', 'PhonicPilot'
 ];
 
 const generateId = () => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return 'user-' + Math.random().toString(36).substring(2, 15) + '-' + Date.now();
+  try {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  } catch (e) {}
+  return 'sp-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now();
 };
 
-const createNewIdentity = (): UserIdentity => {
+const createNewIdentity = (country = 'Ghana', code = 'GH'): UserIdentity => {
   const randomName = GENERATED_NAMES[Math.floor(Math.random() * GENERATED_NAMES.length)];
-  const randomCountry = COUNTRIES[Math.floor(Math.random() * COUNTRIES.length)];
-  const randomId = Math.floor(1000 + Math.random() * 9000);
-  const uniqueId = generateId();
+  const randomId = Math.floor(1000 + Math.random() * 8999);
   
   return {
     username: `${randomName}_${randomId}`,
     avatarSeed: Math.random().toString(36).substring(7),
-    userId: uniqueId,
-    country: randomCountry.name,
-    countryCode: randomCountry.code
+    userId: generateId(),
+    country: country,
+    countryCode: code
   };
 };
 
 export const useUserIdentity = () => {
-  // Initialize state directly from localStorage if available to avoid hydration flicker
-  const [identity, setIdentity] = useState<UserIdentity | null>(() => {
-    if (typeof window === 'undefined') return null;
+  const [identity, setIdentity] = useState<UserIdentity>(() => {
+    if (typeof window === 'undefined') return createNewIdentity();
+    
     try {
       const stored = localStorage.getItem('bee_user_identity');
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.userId) return parsed;
+      }
       
-      // If not stored, generate it now
-      const newIdentity = createNewIdentity();
-      localStorage.setItem('bee_user_identity', JSON.stringify(newIdentity));
-      return newIdentity;
+      const newId = createNewIdentity();
+      localStorage.setItem('bee_user_identity', JSON.stringify(newId));
+      return newId;
     } catch (e) {
-      console.warn("Storage access or identity creation failed", e);
-      // Fallback for private modes where localStorage is blocked
       return createNewIdentity();
     }
   });
 
-  // Ensure consistency if multiple components use this hook
+  // Fetch Country by IP
   useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'bee_user_identity' && e.newValue) {
-        setIdentity(JSON.parse(e.newValue));
+    const detectLocation = async () => {
+      // Only fetch if country hasn't been set by IP yet or if it's the default
+      // We check a flag to avoid repeated lookups if it's already "verified"
+      const isVerified = localStorage.getItem('bee_identity_verified') === 'true';
+      if (isVerified) return;
+
+      try {
+        const response = await fetch('https://ipapi.co/json/');
+        const data = await response.json();
+        
+        if (data && data.country_name && data.country_code) {
+          setIdentity(prev => {
+            const updated = {
+              ...prev,
+              country: data.country_name,
+              countryCode: data.country_code,
+              ipAddress: data.ip
+            };
+            localStorage.setItem('bee_user_identity', JSON.stringify(updated));
+            localStorage.setItem('bee_identity_verified', 'true');
+            return updated;
+          });
+        }
+      } catch (e) {
+        console.warn("Location detection failed, using defaults", e);
       }
     };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+
+    detectLocation();
+  }, []);
+
+  useEffect(() => {
+    const sync = (e: StorageEvent) => {
+      if (e.key === 'bee_user_identity' && e.newValue) {
+        try { setIdentity(JSON.parse(e.newValue)); } catch (err) {}
+      }
+    };
+    window.addEventListener('storage', sync);
+    return () => window.removeEventListener('storage', sync);
   }, []);
 
   return identity;
@@ -88,11 +109,10 @@ export const getAvatarStyle = (seed: string) => {
     'bg-amber-500', 'bg-teal-500'
   ];
   if (!seed) return colors[0];
-  const index = seed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return colors[index % colors.length];
+  const charSum = seed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return colors[charSum % colors.length];
 };
 
 export const getCountryFlag = (code: string) => {
-  if (!code) return 'https://flagcdn.com/w40/gh.png';
-  return `https://flagcdn.com/w40/${code.toLowerCase()}.png`;
+  return `https://flagcdn.com/w40/${(code || 'gh').toLowerCase()}.png`;
 };
