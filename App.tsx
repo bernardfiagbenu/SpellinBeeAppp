@@ -8,13 +8,13 @@ import { TutorialOverlay } from './components/TutorialOverlay';
 import { LeaderboardModal } from './components/LeaderboardModal';
 import { wordList } from './data/wordList';
 import { Difficulty, SpellingWord } from './types';
-import { Shuffle, Hexagon, Trash2, Star, Trophy, BookOpen, Mail } from 'lucide-react';
+import { Shuffle, Hexagon, Trash2, Star, Trophy, BookOpen, Mail, GraduationCap } from 'lucide-react';
 import { useUserIdentity } from './hooks/useUserIdentity';
 import { doc, setDoc, getDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
 
 type ViewState = 'GAME' | 'LIST';
-type SessionDifficulty = Difficulty | 'ALL' | 'STARRED';
+type SessionDifficulty = Difficulty | 'ALL' | 'STARRED' | 'COMPETITION';
 
 interface SessionConfig {
   difficulty: SessionDifficulty;
@@ -82,6 +82,31 @@ function App() {
     }
   }, []);
 
+  // Sync user to Firestore
+  const registerUserInDB = async () => {
+    if (!identity) return;
+    try {
+      const userDocRef = doc(db, 'leaderboard', identity.userId);
+      const docSnap = await getDoc(userDocRef);
+      if (!docSnap.exists()) {
+        await setDoc(userDocRef, {
+          username: identity.username,
+          score: 0,
+          timeTaken: 0,
+          streak: 0,
+          avatarSeed: identity.avatarSeed,
+          userId: identity.userId,
+          country: identity.country,
+          countryCode: identity.countryCode,
+          createdAt: Date.now(),
+          lastUpdated: Date.now()
+        });
+      }
+    } catch (e) {
+      console.error("User registration failed", e);
+    }
+  };
+
   // Fetch Rank
   const fetchUserRank = async () => {
     if (!identity) return;
@@ -98,8 +123,11 @@ function App() {
   };
 
   useEffect(() => {
-    if (identity) fetchUserRank();
-  }, [identity, solvedWordIds.size]);
+    if (identity && hasConsent) {
+      registerUserInDB();
+      fetchUserRank();
+    }
+  }, [identity, hasConsent]);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -118,6 +146,7 @@ function App() {
   const handleAcceptConsent = () => {
     setHasConsent(true);
     localStorage.setItem('js_gh_consent_accepted', 'true');
+    // Profile is synced to DB via useEffect when hasConsent becomes true
     const cachedTutorial = localStorage.getItem('js_gh_tutorial_viewed');
     if (!cachedTutorial) setShowTutorial(true);
   };
@@ -135,17 +164,27 @@ function App() {
       words = [...wordList];
     } else if (difficulty === 'STARRED') {
       words = wordList.filter(w => starredWordIds.has(getWordId(w)));
+    } else if (difficulty === 'COMPETITION') {
+      // Start from the very first word in order
+      words = [...wordList];
     } else {
       words = wordList.filter(w => w.difficulty === difficulty);
     }
 
-    if (letter) {
+    if (letter && difficulty !== 'COMPETITION') {
       words = words.filter(w => w.word.toLowerCase().startsWith(letter.toLowerCase()));
     }
 
     setActiveWordList(words);
-    setInitialIndex(0);
-  }, [sessionConfig, starredWordIds]);
+    
+    // For competition mode, we might want to automatically jump to the first unsolved word
+    if (difficulty === 'COMPETITION') {
+      const firstUnsolved = words.findIndex(w => !solvedWordIds.has(getWordId(w)));
+      setInitialIndex(firstUnsolved !== -1 ? firstUnsolved : 0);
+    } else {
+      setInitialIndex(0);
+    }
+  }, [sessionConfig, starredWordIds, solvedWordIds]);
 
   const submitScoreToGlobal = async (newStreak: number, scoreCount: number) => {
     if (!identity) return;
@@ -245,15 +284,15 @@ function App() {
           <div className="flex flex-col sm:flex-row gap-2">
              <div className="flex gap-2 flex-1">
                <button
-                 onClick={() => setSessionConfig({ difficulty: 'ALL', letter: null })}
+                 onClick={() => setSessionConfig({ difficulty: 'COMPETITION', letter: null })}
                  className={`flex-1 flex items-center justify-center gap-2 px-2 py-3.5 sm:py-5 font-black text-[9px] sm:text-[10px] transition-all rounded-2xl border-2 active:scale-95 ${
-                   sessionConfig.difficulty === 'ALL' && !sessionConfig.letter
-                     ? 'bg-jsBlue text-jsGold border-jsBlue shadow-lg'
+                   sessionConfig.difficulty === 'COMPETITION'
+                     ? 'bg-[#003366] text-[#FFD700] border-[#003366] shadow-lg'
                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-100 dark:border-slate-800'
                  }`}
                >
-                 <Shuffle className="w-3.5 h-3.5" />
-                 <span className="uppercase tracking-widest">Mix</span>
+                 <GraduationCap className="w-3.5 h-3.5" />
+                 <span className="uppercase tracking-widest">Competition</span>
                </button>
                <button
                  onClick={() => setSessionConfig({ difficulty: 'STARRED', letter: null })}
@@ -264,7 +303,7 @@ function App() {
                  }`}
                >
                  <Star className={`w-3.5 h-3.5 ${sessionConfig.difficulty === 'STARRED' ? 'fill-jsBlue' : ''}`} />
-                 <span className="uppercase tracking-widest">Study</span>
+                 <span className="uppercase tracking-widest">Study List</span>
                </button>
              </div>
 
@@ -286,30 +325,32 @@ function App() {
              </div>
           </div>
 
-          {/* Letter Bar */}
-          <div className="bg-white dark:bg-slate-900 p-2 sm:p-3 rounded-2xl shadow-sm border-2 border-slate-100 dark:border-slate-800">
-             <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-0.5">
-                <button
-                  onClick={() => setSessionConfig(prev => ({ ...prev, letter: null }))}
-                  className={`px-3 py-2 text-[9px] sm:text-[10px] font-black shrink-0 rounded-full border-2 transition-all uppercase tracking-widest ${
-                    !sessionConfig.letter ? 'bg-jsGold border-jsBlue text-jsBlue shadow-md' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400 dark:text-slate-500'
-                  }`}
-                >
-                  ALL
-                </button>
-                {alphabet.map(letter => (
+          {/* Letter Bar - Hidden in Competition Mode to ensure sequential order */}
+          {sessionConfig.difficulty !== 'COMPETITION' && (
+            <div className="bg-white dark:bg-slate-900 p-2 sm:p-3 rounded-2xl shadow-sm border-2 border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2">
+               <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-0.5">
                   <button
-                    key={letter}
-                    onClick={() => setSessionConfig(prev => ({ ...prev, letter }))}
-                    className={`h-8 w-8 sm:h-9 sm:w-9 flex items-center justify-center text-[9px] sm:text-[10px] font-black shrink-0 rounded-full border-2 transition-all active:scale-110 ${
-                      sessionConfig.letter === letter ? 'bg-jsGold border-jsBlue text-jsBlue shadow-md scale-105' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400 dark:text-slate-500'
+                    onClick={() => setSessionConfig(prev => ({ ...prev, letter: null }))}
+                    className={`px-3 py-2 text-[9px] sm:text-[10px] font-black shrink-0 rounded-full border-2 transition-all uppercase tracking-widest ${
+                      !sessionConfig.letter ? 'bg-jsGold border-jsBlue text-jsBlue shadow-md' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400 dark:text-slate-500'
                     }`}
                   >
-                    {letter}
+                    ALL
                   </button>
-                ))}
-             </div>
-          </div>
+                  {alphabet.map(letter => (
+                    <button
+                      key={letter}
+                      onClick={() => setSessionConfig(prev => ({ ...prev, letter }))}
+                      className={`h-8 w-8 sm:h-9 sm:w-9 flex items-center justify-center text-[9px] sm:text-[10px] font-black shrink-0 rounded-full border-2 transition-all active:scale-110 ${
+                        sessionConfig.letter === letter ? 'bg-jsGold border-jsBlue text-jsBlue shadow-md scale-105' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400 dark:text-slate-500'
+                      }`}
+                    >
+                      {letter}
+                    </button>
+                  ))}
+               </div>
+            </div>
+          )}
         </div>
 
         {/* Dynamic View */}
@@ -327,6 +368,7 @@ function App() {
                   streak={streak}
                   bestStreak={bestStreak}
                   onStreakReset={() => setStreak(0)}
+                  isCompetition={sessionConfig.difficulty === 'COMPETITION'}
                />
              ) : (
                <div className="flex-grow flex flex-col items-center justify-center py-10 px-6 bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800 text-center animate-in fade-in zoom-in-95">
