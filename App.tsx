@@ -8,9 +8,13 @@ import { TutorialOverlay } from './components/TutorialOverlay';
 import { LeaderboardModal } from './components/LeaderboardModal';
 import { wordList } from './data/wordList';
 import { Difficulty, SpellingWord } from './types';
-import { Hexagon, Trash2, Star, Trophy, BookOpen, Mail, GraduationCap } from 'lucide-react';
+import { 
+  Hexagon, Star, Trophy, BookOpen, GraduationCap, 
+  MapPin, Phone, Mail, MessageCircle, Instagram, 
+  Facebook, Twitter, Music
+} from 'lucide-react';
 import { useUserIdentity } from './hooks/useUserIdentity';
-import { doc, setDoc, getDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, orderBy, getDocs, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 
 type ViewState = 'GAME' | 'LIST';
@@ -26,7 +30,7 @@ const logoUrl = "https://juniorspellergh.com/wp-content/uploads/2024/01/3d-junio
 
 const getWordId = (word: SpellingWord) => `${word.difficulty}:${word.word.toLowerCase()}`;
 
-function App() {
+export default function App() {
   const identity = useUserIdentity();
   const [appReady, setAppReady] = useState(false);
   const [hasConsent, setHasConsent] = useState(false);
@@ -72,7 +76,7 @@ function App() {
   }, []);
 
   const fetchUserRank = async () => {
-    if (!db || !identity) return;
+    if (!db || !identity || !navigator.onLine) return;
     try {
       const q = query(
         collection(db, 'leaderboard'), 
@@ -82,8 +86,10 @@ function App() {
       const snapshot = await getDocs(q);
       const index = snapshot.docs.findIndex(doc => doc.id === identity.userId);
       if (index !== -1) setUserRank(index + 1);
-    } catch (e) {
-      console.warn("Rank fetch failed", e);
+    } catch (e: any) {
+      if (!e.message?.includes('offline')) {
+        console.debug("Rank sync temporarily skipped:", e.message);
+      }
     }
   };
 
@@ -91,24 +97,22 @@ function App() {
     if (!db || !identity) return;
     try {
       const userDocRef = doc(db, 'leaderboard', identity.userId);
-      const docSnap = await getDoc(userDocRef);
-      if (!docSnap.exists() || docSnap.data().countryCode !== identity.countryCode) {
-        await setDoc(userDocRef, {
-          username: identity.username,
-          score: 0,
-          timeTaken: 0,
-          streak: 0,
-          avatarSeed: identity.avatarSeed,
-          userId: identity.userId,
-          country: identity.country,
-          countryCode: identity.countryCode,
-          createdAt: docSnap.exists() ? docSnap.data().createdAt : Date.now(),
-          lastUpdated: Date.now()
-        }, { merge: true });
+      await setDoc(userDocRef, {
+        username: identity.username,
+        avatarSeed: identity.avatarSeed,
+        userId: identity.userId,
+        country: identity.country,
+        countryCode: identity.countryCode,
+        lastUpdated: serverTimestamp()
+      }, { merge: true });
+
+      if (navigator.onLine) {
+        fetchUserRank();
       }
-      fetchUserRank();
-    } catch (e) {
-      console.error("User registration failed", e);
+    } catch (e: any) {
+      if (!e.message?.includes('offline')) {
+        console.debug("User registration sync pending...");
+      }
     }
   };
 
@@ -178,22 +182,14 @@ function App() {
     const timeElapsed = Math.floor((Date.now() - sessionStartTime.current) / 1000);
     try {
       const userDocRef = doc(db, 'leaderboard', identity.userId);
-      const docSnap = await getDoc(userDocRef);
-      let existingScore = 0, existingStreak = 0, existingTime = 0;
-      if (docSnap.exists()) {
-        const d = docSnap.data();
-        existingScore = d.score || 0;
-        existingStreak = d.streak || 0;
-        existingTime = d.timeTaken || 0;
-      }
       await setDoc(userDocRef, {
-        score: Math.max(existingScore, scoreCount),
-        timeTaken: existingTime + timeElapsed,
-        streak: Math.max(existingStreak, newStreak),
-        lastUpdated: Date.now()
+        score: scoreCount,
+        timeTaken: timeElapsed, 
+        streak: newStreak,
+        lastUpdated: serverTimestamp()
       }, { merge: true });
       sessionStartTime.current = Date.now();
-      fetchUserRank();
+      if (navigator.onLine) fetchUserRank();
     } catch (e) {}
   };
 
@@ -210,135 +206,175 @@ function App() {
         setBestStreak(next);
         localStorage.setItem('bee_judge_best_streak', next.toString());
       }
-      if (next % 2 === 0) submitScoreToGlobal(next, newSolvedIds.size);
       return next;
     });
+
+    if (sessionConfig.difficulty === 'COMPETITION') {
+      submitScoreToGlobal(streak + 1, newSolvedIds.size);
+    }
   };
 
   const handleToggleStar = (word: SpellingWord) => {
     const id = getWordId(word);
-    setStarredWordIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      localStorage.setItem('bee_judge_starred_ids', JSON.stringify(Array.from(next)));
-      return next;
-    });
+    const newStarredIds = new Set(starredWordIds);
+    if (newStarredIds.has(id)) {
+      newStarredIds.delete(id);
+    } else {
+      newStarredIds.add(id);
+    }
+    setStarredWordIds(newStarredIds);
+    localStorage.setItem('bee_judge_starred_ids', JSON.stringify(Array.from(newStarredIds)));
   };
 
-  if (!appReady) return null;
+  const handleStreakReset = () => {
+    setStreak(0);
+  };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 flex flex-col font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
-      {!hasConsent && <LegalModal onAccept={handleAcceptConsent} />}
-      {hasConsent && showTutorial && <TutorialOverlay onComplete={handleCompleteTutorial} />}
-      {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} currentUserId={identity.userId} />}
-      
+    <div className={`min-h-screen flex flex-col transition-colors duration-300 ${darkMode ? 'dark bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
       <Header 
-        currentView={currentView} 
-        onViewChange={setCurrentView} 
+        currentView={currentView}
+        onViewChange={setCurrentView}
         darkMode={darkMode}
         onToggleDarkMode={toggleDarkMode}
         onShowLeaderboard={() => setShowLeaderboard(true)}
         identity={identity}
         userRank={userRank}
       />
-      
-      <main className="flex-grow flex flex-col items-center justify-start py-2 sm:py-4 px-3 sm:px-4 w-full max-w-2xl mx-auto overflow-x-hidden">
-        <div className="w-full space-y-2 sm:space-y-3 mb-4 sm:mb-6">
-          <div className="flex flex-col sm:flex-row gap-2">
-             <div className="flex gap-2 flex-1">
-               <button
-                 onClick={() => setSessionConfig({ difficulty: 'COMPETITION', letter: null })}
-                 className={`flex-1 flex items-center justify-center gap-2 px-2 py-3.5 sm:py-5 font-black text-[9px] sm:text-[10px] transition-all rounded-2xl border-2 active:scale-95 ${
-                   sessionConfig.difficulty === 'COMPETITION'
-                     ? 'bg-jsBlue text-jsGold border-jsBlue shadow-lg'
-                     : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-100 dark:border-slate-800'
-                 }`}
-               >
-                 <GraduationCap className="w-3.5 h-3.5" />
-                 <span className="uppercase tracking-widest">Competition Stage</span>
-               </button>
-               <button
-                 onClick={() => setSessionConfig({ difficulty: 'STARRED', letter: null })}
-                 className={`flex-1 flex items-center justify-center gap-2 px-2 py-3.5 sm:py-5 font-black text-[9px] sm:text-[10px] transition-all rounded-2xl border-2 active:scale-95 ${
-                   sessionConfig.difficulty === 'STARRED'
-                     ? 'bg-yellow-400 text-jsBlue border-yellow-400 shadow-lg'
-                     : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-100 dark:border-slate-800'
-                 }`}
-               >
-                 <Star className={`w-3.5 h-3.5 ${sessionConfig.difficulty === 'STARRED' ? 'fill-jsBlue' : ''}`} />
-                 <span className="uppercase tracking-widest">Personal List</span>
-               </button>
-             </div>
-             <div className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 p-1.5 rounded-2xl flex gap-1.5 flex-1">
-                {beeLevels.map(level => (
-                  <button
-                    key={level}
-                    onClick={() => setSessionConfig(prev => ({ ...prev, difficulty: level }))}
-                    className={`flex-1 flex flex-col items-center justify-center p-1.5 font-black text-[7px] sm:text-[8px] transition-all rounded-xl border-2 active:scale-95 ${
-                      sessionConfig.difficulty === level
-                        ? 'bg-jsBlue text-jsGold border-jsBlue shadow-md'
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-transparent'
-                    }`}
-                  >
-                    <Hexagon className={`w-2.5 h-2.5 mb-1 ${sessionConfig.difficulty === level ? 'fill-jsGold' : ''}`} />
-                    {level.split(' ')[0].toUpperCase()}
-                  </button>
-                ))}
-             </div>
-          </div>
-        </div>
+
+      <main className="max-w-5xl mx-auto p-4 sm:p-6 flex flex-col items-center flex-grow w-full">
+        {!hasConsent && <LegalModal onAccept={handleAcceptConsent} />}
+        {showTutorial && <TutorialOverlay onComplete={handleCompleteTutorial} />}
+        {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} currentUserId={identity?.userId} />}
 
         {currentView === 'GAME' ? (
-          <div className="w-full flex-grow flex flex-col min-h-0">
+          <div className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4">
+             <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
+               {beeLevels.map(lvl => (
+                 <button 
+                  key={lvl}
+                  onClick={() => setSessionConfig(prev => ({ ...prev, difficulty: lvl }))}
+                  className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === lvl ? 'bg-jsBlue text-white' : 'bg-white text-slate-400 border border-slate-200'}`}
+                 >
+                   {lvl}
+                 </button>
+               ))}
+               <button 
+                onClick={() => setSessionConfig(prev => ({ ...prev, difficulty: 'COMPETITION' }))}
+                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === 'COMPETITION' ? 'bg-orange-500 text-white' : 'bg-white text-orange-500 border border-orange-200'}`}
+               >
+                 Competition
+               </button>
+               {starredWordIds.size > 0 && (
+                 <button 
+                  onClick={() => setSessionConfig(prev => ({ ...prev, difficulty: 'STARRED' }))}
+                  className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === 'STARRED' ? 'bg-jsGold text-jsBlue' : 'bg-white text-jsGold border border-jsGold'}`}
+                 >
+                   Starred
+                 </button>
+               )}
+             </div>
+
              {activeWordList.length > 0 ? (
                <SpellingGame 
-                  key={`${sessionConfig.difficulty}-${sessionConfig.letter}`}
-                  words={activeWordList} 
-                  initialIndex={initialIndex}
-                  solvedWordIds={solvedWordIds}
-                  onWordSolved={handleWordSolved}
-                  starredWordIds={starredWordIds}
-                  onToggleStar={handleToggleStar}
-                  streak={streak}
-                  bestStreak={bestStreak}
-                  onStreakReset={() => setStreak(0)}
-                  isCompetition={sessionConfig.difficulty === 'COMPETITION'}
+                words={activeWordList}
+                initialIndex={initialIndex}
+                solvedWordIds={solvedWordIds}
+                starredWordIds={starredWordIds}
+                onWordSolved={handleWordSolved}
+                onToggleStar={handleToggleStar}
+                streak={streak}
+                bestStreak={bestStreak}
+                onStreakReset={handleStreakReset}
+                isCompetition={sessionConfig.difficulty === 'COMPETITION'}
                />
              ) : (
-               <div className="flex-grow flex flex-col items-center justify-center py-10 px-6 bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800 text-center animate-in fade-in zoom-in-95">
-                  <Star className="w-12 h-12 text-slate-100 dark:text-slate-800 mb-4" />
-                  <p className="font-black text-slate-400 uppercase tracking-widest text-[10px]">No words to display</p>
-                  <button onClick={() => setSessionConfig({ difficulty: Difficulty.ONE_BEE, letter: null })} className="mt-3 text-jsBlue dark:text-blue-400 font-black text-[10px] uppercase tracking-widest underline">Reset Filters</button>
+               <div className="py-20 text-center text-slate-400 uppercase font-black text-xs tracking-widest">
+                 No words found in this category.
                </div>
              )}
           </div>
         ) : (
-          <div className="w-full">
-            <WordListView 
-              words={wordList} 
-              onBack={() => setCurrentView('GAME')}
-              solvedWordIds={solvedWordIds}
-              starredWordIds={starredWordIds}
-              onToggleStar={handleToggleStar}
-            />
-          </div>
+          <WordListView 
+            words={wordList}
+            onBack={() => setCurrentView('GAME')}
+            solvedWordIds={solvedWordIds}
+            starredWordIds={starredWordIds}
+            onToggleStar={handleToggleStar}
+          />
         )}
       </main>
-      
-      <footer className="bg-jsBlue dark:bg-slate-950 text-white py-12 text-center mt-auto border-t-[8px] border-jsGold relative overflow-hidden">
-        <div className="max-w-4xl mx-auto px-6 flex flex-col items-center relative z-10">
-          <img src={logoUrl} alt="Logo" className="h-12 w-auto mb-4 opacity-90" />
-          <p className="text-jsGold text-[8px] font-black uppercase tracking-[0.4em] mb-8 opacity-70 italic">Learn Earn and Spell like a Champion</p>
-          <div className="flex items-center gap-4">
-            <button onClick={() => { if(confirm("This will clear all your progress. Continue?")) { localStorage.clear(); location.reload(); }}} className="text-[7px] font-black text-blue-300/40 uppercase tracking-[0.2em] border border-blue-400/5 px-4 py-2 rounded-full">Reset App Data</button>
-            <a href="mailto:dev@juniorspellergh.com" className="text-[7px] font-black text-jsGold/40 uppercase tracking-[0.2em] border border-jsGold/5 px-4 py-2 rounded-full">Contact Support</a>
+
+      <footer className="bg-jsBlue dark:bg-slate-900 text-white pt-12 pb-8 border-t-[6px] border-jsGold transition-colors">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-12">
+            
+            <div className="flex flex-col items-center md:items-start text-center md:text-left">
+              <img src={logoUrl} alt="Junior Speller Ghana" className="h-14 w-auto mb-4" />
+              <p className="text-jsGold font-black uppercase text-[10px] tracking-[0.2em] mb-4 opacity-80">
+                Learn, Earn and Spell
+              </p>
+              <p className="text-white/60 text-[11px] font-bold leading-relaxed max-w-xs">
+                The official companion study tool for the National Junior Speller Competition champions in Ghana.
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center md:items-start space-y-4">
+              <div className="flex items-start gap-3">
+                <MapPin className="w-5 h-5 text-jsGold shrink-0" />
+                <p className="text-[11px] font-bold text-white/80 leading-relaxed">
+                  Dansoman Exhibition Roundabout<br/>
+                  Dansoman High Street on top of CBG Bank,<br/>
+                  Accra – Ghana
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <Phone className="w-5 h-5 text-jsGold shrink-0" />
+                <div className="flex flex-col gap-1 text-[11px] font-bold text-white/80">
+                  <a href="tel:+233246040422" className="hover:text-jsGold">+233 (0)246040422</a>
+                  <a href="tel:+233548119184" className="hover:text-jsGold">+233 (0)548119184</a>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center md:items-end">
+              <a 
+                href="mailto:thejuniorspeller@gmail.com" 
+                className="bg-jsGold text-jsBlue font-black py-4 px-8 rounded-2xl flex items-center gap-2 hover:scale-105 transition-transform active:scale-95 shadow-xl text-xs uppercase tracking-widest mb-4"
+              >
+                <Mail className="w-4 h-4" /> Contact Support
+              </a>
+              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest text-center md:text-right">
+                thejuniorspeller@gmail.com
+              </p>
+            </div>
+          </div>
+
+          <div className="border-t border-white/10 pt-8 flex flex-col items-center gap-6">
+            <div className="flex items-center gap-5">
+              <a href="https://wa.link/j9jjk4" target="_blank" rel="noopener noreferrer" className="p-3 bg-white/5 hover:bg-green-500 rounded-full transition-all group">
+                <MessageCircle className="w-5 h-5 text-white/60 group-hover:text-white" />
+              </a>
+              <a href="https://www.tiktok.com/@juniorspeller?lang=en" target="_blank" rel="noopener noreferrer" className="p-3 bg-white/5 hover:bg-black rounded-full transition-all group">
+                <Music className="w-5 h-5 text-white/60 group-hover:text-white" />
+              </a>
+              <a href="https://twitter.com/SpellerJun53163" target="_blank" rel="noopener noreferrer" className="p-3 bg-white/5 hover:bg-black rounded-full transition-all group">
+                <Twitter className="w-5 h-5 text-white/60 group-hover:text-white" />
+              </a>
+              <a href="https://www.facebook.com/nationaljuniorspeller" target="_blank" rel="noopener noreferrer" className="p-3 bg-white/5 hover:bg-blue-600 rounded-full transition-all group">
+                <Facebook className="w-5 h-5 text-white/60 group-hover:text-white" />
+              </a>
+              <a href="https://www.instagram.com/juniorspeller1/" target="_blank" rel="noopener noreferrer" className="p-3 bg-white/5 hover:bg-pink-600 rounded-full transition-all group">
+                <Instagram className="w-5 h-5 text-white/60 group-hover:text-white" />
+              </a>
+            </div>
+            
+            <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.5em] text-center">
+              © 2024 National Junior Speller Ghana
+            </p>
           </div>
         </div>
       </footer>
     </div>
   );
 }
-
-export default App;

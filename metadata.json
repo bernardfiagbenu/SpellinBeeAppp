@@ -1,6 +1,6 @@
 {
   "name": "Junior Speller Ghana",
-  "description": "The official companion study tool for the Scripps National Spelling Bee, featuring One Bee, Two Bee, and Three Bee words from the 2026 Words of the Champions.",
+  "description": "The official companion study tool for the National Junior Speller Competition, featuring One Bee, Two Bee, and Three Bee words from the 2026 Words of the Champions.",
   "requestFramePermissions": [
     "microphone",
     "geolocation"

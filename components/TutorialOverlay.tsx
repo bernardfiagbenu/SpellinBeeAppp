@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { ChevronRight, X, PlayCircle, Star, Flame, Volume2, Mic } from 'lucide-react';
+import { ChevronRight, X, PlayCircle, Star, Flame, Volume2, Mic, Trophy } from 'lucide-react';
 
 interface Step {
   title: string;
@@ -27,6 +28,11 @@ const steps: Step[] = [
     title: "Pro Streaks",
     description: "Build your flame streak to beat your personal best score!",
     icon: <Flame className="w-7 h-7 text-orange-500" />,
+  },
+  {
+    title: "Global Ranking",
+    description: "Climb the leaderboard by spelling accurately and quickly. Be the champion!",
+    icon: <Trophy className="w-7 h-7 text-jsGold" />,
   }
 ];
 
