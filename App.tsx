@@ -1,12 +1,17 @@
-import React, { useEffect, useState } from 'react';
+
+import React, { useEffect, useState, useRef } from 'react';
 import { Header } from './components/Header';
 import { SpellingGame } from './components/SpellingGame';
 import { WordListView } from './components/WordListView';
 import { LegalModal } from './components/LegalModal';
 import { TutorialOverlay } from './components/TutorialOverlay';
+import { LeaderboardModal } from './components/LeaderboardModal';
 import { wordList } from './data/wordList';
 import { Difficulty, SpellingWord } from './types';
-import { Shuffle, Hexagon, Trash2, Star, Trophy, BookOpen } from 'lucide-react';
+import { Shuffle, Hexagon, Trash2, Star, Trophy, BookOpen, Mail } from 'lucide-react';
+import { useUserIdentity } from './hooks/useUserIdentity';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from './firebase';
 
 type ViewState = 'GAME' | 'LIST';
 type SessionDifficulty = Difficulty | 'ALL' | 'STARRED';
@@ -23,9 +28,11 @@ const logoUrl = "https://juniorspellergh.com/wp-content/uploads/2024/01/3d-junio
 const getWordId = (word: SpellingWord) => `${word.difficulty}:${word.word.toLowerCase()}`;
 
 function App() {
+  const identity = useUserIdentity();
   const [loading, setLoading] = useState(true);
   const [hasConsent, setHasConsent] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [initialIndex, setInitialIndex] = useState(0);
   const [currentView, setCurrentView] = useState<ViewState>('GAME');
   const [darkMode, setDarkMode] = useState(false);
@@ -40,13 +47,16 @@ function App() {
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
 
+  // Performance tracking
+  const sessionStartTime = useRef<number>(Date.now());
+  const [totalSessionTime, setTotalSessionTime] = useState(0);
+
   useEffect(() => {
     try {
       const cachedConsent = localStorage.getItem('js_gh_consent_accepted');
       if (cachedConsent === 'true') setHasConsent(true);
 
       const cachedTutorial = localStorage.getItem('js_gh_tutorial_viewed');
-      // Only show tutorial if they haven't seen it and have accepted consent
       if (!cachedTutorial && cachedConsent === 'true') setShowTutorial(true);
 
       const cachedSolved = localStorage.getItem('bee_judge_solved_ids');
@@ -119,14 +129,49 @@ function App() {
     setInitialIndex(0);
   }, [sessionConfig, starredWordIds]);
 
+  const submitScoreToGlobal = async (newStreak: number, scoreCount: number) => {
+    if (!identity) return;
+    const timeElapsed = Math.floor((Date.now() - sessionStartTime.current) / 1000);
+    
+    try {
+      const userDocRef = doc(db, 'leaderboard', identity.userId);
+      const docSnap = await getDoc(userDocRef);
+      
+      let existingScore = 0;
+      let existingStreak = 0;
+      let existingTime = 0;
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        existingScore = data.score || 0;
+        existingStreak = data.streak || 0;
+        existingTime = data.timeTaken || 0;
+      }
+
+      // Update only if performance improved or just cumulatively for score
+      await setDoc(userDocRef, {
+        username: identity.username,
+        score: Math.max(existingScore, scoreCount),
+        timeTaken: existingTime + timeElapsed,
+        streak: Math.max(existingStreak, newStreak),
+        avatarSeed: identity.avatarSeed,
+        userId: identity.userId,
+        lastUpdated: Date.now()
+      }, { merge: true });
+      
+      // Reset local session timer for the next "chunk" of tracking
+      sessionStartTime.current = Date.now();
+    } catch (e) {
+      console.warn("Global rank submission failed:", e);
+    }
+  };
+
   const handleWordSolved = (word: SpellingWord) => {
     const id = getWordId(word);
-    setSolvedWordIds(prev => {
-      const next = new Set(prev);
-      next.add(id);
-      localStorage.setItem('bee_judge_solved_ids', JSON.stringify(Array.from(next)));
-      return next;
-    });
+    const newSolvedIds = new Set(solvedWordIds);
+    newSolvedIds.add(id);
+    setSolvedWordIds(newSolvedIds);
+    localStorage.setItem('bee_judge_solved_ids', JSON.stringify(Array.from(newSolvedIds)));
     
     setStreak(s => {
       const newStreak = s + 1;
@@ -134,6 +179,8 @@ function App() {
         setBestStreak(newStreak);
         localStorage.setItem('bee_judge_best_streak', newStreak.toString());
       }
+      // Auto-submit milestone
+      if (newStreak % 3 === 0) submitScoreToGlobal(newStreak, newSolvedIds.size);
       return newStreak;
     });
   };
@@ -162,12 +209,14 @@ function App() {
     <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 flex flex-col font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
       {!hasConsent && <LegalModal onAccept={handleAcceptConsent} />}
       {hasConsent && showTutorial && <TutorialOverlay onComplete={handleCompleteTutorial} />}
+      {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} currentUserId={identity?.userId} />}
       
       <Header 
         currentView={currentView} 
         onViewChange={setCurrentView} 
         darkMode={darkMode}
         onToggleDarkMode={toggleDarkMode}
+        onShowLeaderboard={() => setShowLeaderboard(true)}
       />
       
       <main className="flex-grow flex flex-col items-center justify-start py-2 sm:py-4 px-3 sm:px-4 w-full max-w-2xl mx-auto overflow-x-hidden">
@@ -300,13 +349,22 @@ function App() {
         )}
       </main>
       
-      <footer className="bg-jsBlue dark:bg-slate-950 text-white py-10 text-center mt-auto border-t-[8px] border-jsGold">
-        <div className="max-w-4xl mx-auto px-6 flex flex-col items-center">
-          <img src={logoUrl} alt="Logo" className="h-12 w-auto mb-4 opacity-90" />
-          <p className="text-jsGold text-[8px] font-black uppercase tracking-[0.4em] mb-8 opacity-70">Learn Earn and Spell like a Champion</p>
-          <button onClick={resetAllProgress} className="text-[7px] font-black text-blue-300/40 hover:text-white transition-all uppercase tracking-[0.2em] flex items-center gap-2 border border-blue-400/5 px-4 py-2 rounded-full">
-            <Trash2 className="w-3 h-3" /> System Reset
-          </button>
+      <footer className="bg-jsBlue dark:bg-slate-950 text-white py-8 sm:py-12 text-center mt-auto border-t-[8px] border-jsGold relative overflow-hidden">
+        <div className="max-w-4xl mx-auto px-6 flex flex-col items-center relative z-10">
+          <img src={logoUrl} alt="Logo" className="h-10 sm:h-12 w-auto mb-4 opacity-90" />
+          <p className="text-jsGold text-[7px] sm:text-[8px] font-black uppercase tracking-[0.4em] mb-8 opacity-70 italic">Learn Earn and Spell like a Champion</p>
+          
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <button onClick={resetAllProgress} className="text-[7px] font-black text-blue-300/40 hover:text-white transition-all uppercase tracking-[0.2em] flex items-center gap-2 border border-blue-400/5 px-4 py-2 rounded-full">
+              <Trash2 className="w-3 h-3" /> System Reset
+            </button>
+            <a 
+              href="mailto:dev@juniorspellergh.com?subject=Spelling App Enquiry" 
+              className="text-[7px] font-black text-jsGold/40 hover:text-jsGold transition-all uppercase tracking-[0.2em] flex items-center gap-2 border border-jsGold/5 px-4 py-2 rounded-full"
+            >
+              <Mail className="w-3 h-3" /> Enquiry
+            </a>
+          </div>
         </div>
       </footer>
     </div>
