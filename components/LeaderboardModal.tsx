@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
-import { X, Trophy, Timer, Flame, Medal, Loader2, User } from 'lucide-react';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { X, Trophy, Flame, Medal, Loader2, User, AlertTriangle, Settings } from 'lucide-react';
 import { db } from '../firebase';
+import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { getAvatarStyle, getCountryFlag } from '../hooks/useUserIdentity';
 
 interface LeaderboardEntry {
@@ -24,22 +24,37 @@ interface LeaderboardModalProps {
 export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, currentUserId }) => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
+        if (!db) return;
+        
+        // Use a simpler query first to avoid "Missing Index" or "Permission" issues on multi-field sorts
         const q = query(
           collection(db, 'leaderboard'),
           orderBy('score', 'desc'),
-          orderBy('timeTaken', 'asc'),
-          orderBy('streak', 'desc'),
-          limit(500)
+          limit(100)
         );
+        
         const snapshot = await getDocs(q);
-        const data = snapshot.docs.map(doc => doc.data() as LeaderboardEntry);
+        const data = snapshot.docs.map(doc => ({
+          userId: doc.id,
+          ...doc.data()
+        })) as LeaderboardEntry[];
+        
         setEntries(data);
-      } catch (e) {
-        console.error("Error fetching leaderboard:", e);
+        setError(null);
+      } catch (e: any) {
+        console.error("Firestore Error:", e);
+        if (e.message?.includes('permission')) {
+          setError("PERMISSION_ERROR");
+        } else if (e.message?.includes('index')) {
+          setError("INDEX_ERROR");
+        } else {
+          setError("GENERAL_ERROR");
+        }
       } finally {
         setLoading(false);
       }
@@ -57,7 +72,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, cur
             </div>
             <div>
               <h2 className="text-xl font-black text-jsBlue dark:text-blue-300 uppercase tracking-tight">Global Ranks</h2>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 500 Spellers</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top Spellers</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
@@ -65,11 +80,33 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, cur
           </button>
         </div>
 
-        <div className="flex-grow overflow-y-auto p-2 sm:p-4">
+        <div className="flex-grow overflow-y-auto p-4">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
               <Loader2 className="w-10 h-10 animate-spin text-jsBlue dark:text-blue-500" />
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Retrieving Data...</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center px-6">
+              <div className="p-4 bg-red-50 rounded-full mb-4">
+                <AlertTriangle className="w-10 h-10 text-red-500" />
+              </div>
+              <h3 className="text-lg font-black text-slate-800 dark:text-white mb-2 uppercase tracking-tight">
+                {error === 'PERMISSION_ERROR' ? 'Setup Required' : 'Connection Error'}
+              </h3>
+              <p className="text-sm text-slate-500 mb-6 max-w-sm">
+                {error === 'PERMISSION_ERROR' 
+                  ? "Firestore Rules are blocking access. Please update your Firebase Rules to allow public reads/writes."
+                  : "We couldn't reach the leaderboard. Check your internet or Firebase configuration."}
+              </p>
+              {error === 'PERMISSION_ERROR' && (
+                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl text-left font-mono text-[10px] border border-slate-200 w-full overflow-x-auto">
+                  <p className="text-jsBlue font-bold mb-2 uppercase tracking-widest">Required Rule Snippet:</p>
+                  <code className="text-slate-600 dark:text-slate-400 block whitespace-pre">
+                    {`match /leaderboard/{doc=**} {\n  allow read, write: if true;\n}`}
+                  </code>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-2">
@@ -111,22 +148,22 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, cur
                     </div>
                   </div>
                   <div className={`col-span-2 text-center font-black text-xs ${entry.userId === currentUserId ? 'text-white' : 'text-jsBlue dark:text-blue-400'}`}>
-                    {entry.score}
+                    {entry.score || 0}
                   </div>
                   <div className="col-span-2 text-center text-[10px] font-medium opacity-60">
-                    {Math.floor(entry.timeTaken / 60)}:{(entry.timeTaken % 60).toString().padStart(2, '0')}
+                    {Math.floor((entry.timeTaken || 0) / 60)}:{((entry.timeTaken || 0) % 60).toString().padStart(2, '0')}
                   </div>
                   <div className="col-span-2 text-center">
                     <div className="flex items-center justify-center gap-1 text-orange-500 font-black text-xs">
                       <Flame className="w-3 h-3 fill-current" />
-                      {entry.streak}
+                      {entry.streak || 0}
                     </div>
                   </div>
                 </div>
               ))}
               {entries.length === 0 && (
                 <div className="text-center py-20 text-slate-300">
-                  <Medal className="w-16 h-16 mx-auto mb-4 opacity-10" />
+                  <Trophy className="w-16 h-16 mx-auto mb-4 opacity-10" />
                   <p className="text-[10px] font-black uppercase tracking-widest">No rankings yet. Be the first!</p>
                 </div>
               )}
@@ -136,7 +173,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, cur
 
         <div className="p-6 bg-slate-50 dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
            <p className="text-[8px] text-center font-black text-slate-400 uppercase tracking-[0.2em]">
-             Ranked by Score &gt; Efficiency &gt; Tenacity
+             Ranked by Competition Mastery
            </p>
         </div>
       </div>

@@ -9,13 +9,12 @@ import { LeaderboardModal } from './components/LeaderboardModal';
 import { wordList } from './data/wordList';
 import { Difficulty, SpellingWord } from './types';
 import { 
-  Hexagon, Star, Trophy, BookOpen, GraduationCap, 
   MapPin, Phone, Mail, MessageCircle, Instagram, 
-  Facebook, Twitter, Music
+  Facebook, Twitter, Music, Star
 } from 'lucide-react';
 import { useUserIdentity } from './hooks/useUserIdentity';
-import { doc, setDoc, getDoc, collection, query, orderBy, getDocs, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
+import { doc, setDoc, getDocs, collection, query, orderBy, limit } from 'firebase/firestore';
 
 type ViewState = 'GAME' | 'LIST';
 type SessionDifficulty = Difficulty | 'ALL' | 'STARRED' | 'COMPETITION';
@@ -53,7 +52,6 @@ export default function App() {
 
   const sessionStartTime = useRef<number>(Date.now());
 
-  // Initialization
   useEffect(() => {
     try {
       setHasConsent(localStorage.getItem('js_gh_consent_accepted') === 'true');
@@ -79,40 +77,37 @@ export default function App() {
     if (!db || !identity || !navigator.onLine) return;
     try {
       const q = query(
-        collection(db, 'leaderboard'), 
-        orderBy('score', 'desc'), 
-        orderBy('timeTaken', 'asc')
+        collection(db, 'leaderboard'),
+        orderBy('score', 'desc'),
+        limit(500)
       );
       const snapshot = await getDocs(q);
-      const index = snapshot.docs.findIndex(doc => doc.id === identity.userId);
+      const docs = snapshot.docs;
+      const index = docs.findIndex(d => d.id === identity.userId);
       if (index !== -1) setUserRank(index + 1);
-    } catch (e: any) {
-      if (!e.message?.includes('offline')) {
-        console.debug("Rank sync temporarily skipped:", e.message);
-      }
+      else setUserRank('>500');
+    } catch (e) {
+      console.debug("Rank sync skipped - Rules or Indexes missing", e);
     }
   };
 
   const registerUserInDB = async () => {
     if (!db || !identity) return;
     try {
-      const userDocRef = doc(db, 'leaderboard', identity.userId);
-      await setDoc(userDocRef, {
+      await setDoc(doc(db, 'leaderboard', identity.userId), {
+        userId: identity.userId,
         username: identity.username,
         avatarSeed: identity.avatarSeed,
-        userId: identity.userId,
         country: identity.country,
         countryCode: identity.countryCode,
-        lastUpdated: serverTimestamp()
+        lastUpdated: new Date().toISOString()
       }, { merge: true });
 
       if (navigator.onLine) {
         fetchUserRank();
       }
-    } catch (e: any) {
-      if (!e.message?.includes('offline')) {
-        console.debug("User registration sync pending...");
-      }
+    } catch (e) {
+      console.debug("User registration sync failed - Rules missing?", e);
     }
   };
 
@@ -181,57 +176,60 @@ export default function App() {
     if (!db || !identity) return;
     const timeElapsed = Math.floor((Date.now() - sessionStartTime.current) / 1000);
     try {
-      const userDocRef = doc(db, 'leaderboard', identity.userId);
-      await setDoc(userDocRef, {
+      await setDoc(doc(db, 'leaderboard', identity.userId), {
+        userId: identity.userId,
         score: scoreCount,
         timeTaken: timeElapsed, 
         streak: newStreak,
-        lastUpdated: serverTimestamp()
+        lastUpdated: new Date().toISOString()
       }, { merge: true });
-      sessionStartTime.current = Date.now();
+        
       if (navigator.onLine) fetchUserRank();
-    } catch (e) {}
+    } catch (e) {
+      console.debug("Score submission failed", e);
+    }
   };
 
   const handleWordSolved = (word: SpellingWord) => {
     const id = getWordId(word);
-    const newSolvedIds = new Set(solvedWordIds);
-    newSolvedIds.add(id);
-    setSolvedWordIds(newSolvedIds);
-    localStorage.setItem('bee_judge_solved_ids', JSON.stringify(Array.from(newSolvedIds)));
-    
-    setStreak(s => {
-      const next = s + 1;
-      if (next > bestStreak) {
-        setBestStreak(next);
-        localStorage.setItem('bee_judge_best_streak', next.toString());
-      }
+    setSolvedWordIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      localStorage.setItem('bee_judge_solved_ids', JSON.stringify(Array.from(next)));
       return next;
     });
 
-    if (sessionConfig.difficulty === 'COMPETITION') {
-      submitScoreToGlobal(streak + 1, newSolvedIds.size);
+    const newStreak = streak + 1;
+    setStreak(newStreak);
+    if (newStreak > bestStreak) {
+      setBestStreak(newStreak);
+      localStorage.setItem('bee_judge_best_streak', newStreak.toString());
     }
+
+    const solvedCount = solvedWordIds.size + 1;
+    submitScoreToGlobal(newStreak, solvedCount);
   };
 
   const handleToggleStar = (word: SpellingWord) => {
     const id = getWordId(word);
-    const newStarredIds = new Set(starredWordIds);
-    if (newStarredIds.has(id)) {
-      newStarredIds.delete(id);
-    } else {
-      newStarredIds.add(id);
-    }
-    setStarredWordIds(newStarredIds);
-    localStorage.setItem('bee_judge_starred_ids', JSON.stringify(Array.from(newStarredIds)));
+    setStarredWordIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      localStorage.setItem('bee_judge_starred_ids', JSON.stringify(Array.from(next)));
+      return next;
+    });
   };
 
   const handleStreakReset = () => {
     setStreak(0);
+    submitScoreToGlobal(0, solvedWordIds.size);
   };
 
+  if (!appReady) return null;
+
   return (
-    <div className={`min-h-screen flex flex-col transition-colors duration-300 ${darkMode ? 'dark bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-300">
       <Header 
         currentView={currentView}
         onViewChange={setCurrentView}
@@ -242,41 +240,44 @@ export default function App() {
         userRank={userRank}
       />
 
-      <main className="max-w-5xl mx-auto p-4 sm:p-6 flex flex-col items-center flex-grow w-full">
+      <main className="flex-grow container max-w-5xl mx-auto px-4 py-8 flex flex-col items-center justify-start overflow-hidden">
         {!hasConsent && <LegalModal onAccept={handleAcceptConsent} />}
         {showTutorial && <TutorialOverlay onComplete={handleCompleteTutorial} />}
-        {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} currentUserId={identity?.userId} />}
+        {showLeaderboard && (
+          <LeaderboardModal 
+            onClose={() => setShowLeaderboard(false)} 
+            currentUserId={identity?.userId} 
+          />
+        )}
 
         {currentView === 'GAME' ? (
-          <div className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4">
-             <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
-               {beeLevels.map(lvl => (
-                 <button 
-                  key={lvl}
-                  onClick={() => setSessionConfig(prev => ({ ...prev, difficulty: lvl }))}
-                  className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === lvl ? 'bg-jsBlue text-white' : 'bg-white text-slate-400 border border-slate-200'}`}
-                 >
-                   {lvl}
-                 </button>
-               ))}
-               <button 
-                onClick={() => setSessionConfig(prev => ({ ...prev, difficulty: 'COMPETITION' }))}
-                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === 'COMPETITION' ? 'bg-orange-500 text-white' : 'bg-white text-orange-500 border border-orange-200'}`}
-               >
-                 Competition
-               </button>
-               {starredWordIds.size > 0 && (
-                 <button 
-                  onClick={() => setSessionConfig(prev => ({ ...prev, difficulty: 'STARRED' }))}
-                  className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === 'STARRED' ? 'bg-jsGold text-jsBlue' : 'bg-white text-jsGold border border-jsGold'}`}
-                 >
-                   Starred
-                 </button>
-               )}
-             </div>
+          <div className="w-full flex flex-col gap-6">
+            <div className="flex flex-wrap justify-center gap-2 mb-2">
+              <button 
+                onClick={() => setSessionConfig({ difficulty: 'COMPETITION', letter: null })}
+                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === 'COMPETITION' ? 'bg-jsBlue text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-200 dark:border-slate-800'}`}
+              >
+                🏆 Grand Finals
+              </button>
+              {beeLevels.map(level => (
+                <button 
+                  key={level}
+                  onClick={() => setSessionConfig({ difficulty: level, letter: null })}
+                  className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === level ? 'bg-jsBlue text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-200 dark:border-slate-800'}`}
+                >
+                  {level}
+                </button>
+              ))}
+              <button 
+                onClick={() => setSessionConfig({ difficulty: 'STARRED', letter: null })}
+                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === 'STARRED' ? 'bg-jsBlue text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-200 dark:border-slate-800'}`}
+              >
+                ⭐ Favorites ({starredWordIds.size})
+              </button>
+            </div>
 
-             {activeWordList.length > 0 ? (
-               <SpellingGame 
+            {activeWordList.length > 0 ? (
+              <SpellingGame 
                 words={activeWordList}
                 initialIndex={initialIndex}
                 solvedWordIds={solvedWordIds}
@@ -287,12 +288,19 @@ export default function App() {
                 bestStreak={bestStreak}
                 onStreakReset={handleStreakReset}
                 isCompetition={sessionConfig.difficulty === 'COMPETITION'}
-               />
-             ) : (
-               <div className="py-20 text-center text-slate-400 uppercase font-black text-xs tracking-widest">
-                 No words found in this category.
-               </div>
-             )}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                <Star className="w-12 h-12 mb-4 opacity-20" />
+                <p className="font-black text-xs uppercase tracking-[0.2em]">No words in this set</p>
+                <button 
+                  onClick={() => setSessionConfig({ difficulty: Difficulty.ONE_BEE, letter: null })}
+                  className="mt-4 text-jsBlue font-bold text-xs underline"
+                >
+                  Return to One Bee
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <WordListView 
@@ -305,75 +313,14 @@ export default function App() {
         )}
       </main>
 
-      <footer className="bg-jsBlue dark:bg-slate-900 text-white pt-12 pb-8 border-t-[6px] border-jsGold transition-colors">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-12">
-            
-            <div className="flex flex-col items-center md:items-start text-center md:text-left">
-              <img src={logoUrl} alt="Junior Speller Ghana" className="h-14 w-auto mb-4" />
-              <p className="text-jsGold font-black uppercase text-[10px] tracking-[0.2em] mb-4 opacity-80">
-                Learn, Earn and Spell
-              </p>
-              <p className="text-white/60 text-[11px] font-bold leading-relaxed max-w-xs">
-                The official companion study tool for the National Junior Speller Competition champions in Ghana.
-              </p>
-            </div>
-
-            <div className="flex flex-col items-center md:items-start space-y-4">
-              <div className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 text-jsGold shrink-0" />
-                <p className="text-[11px] font-bold text-white/80 leading-relaxed">
-                  Dansoman Exhibition Roundabout<br/>
-                  Dansoman High Street on top of CBG Bank,<br/>
-                  Accra – Ghana
-                </p>
-              </div>
-              <div className="flex items-start gap-3">
-                <Phone className="w-5 h-5 text-jsGold shrink-0" />
-                <div className="flex flex-col gap-1 text-[11px] font-bold text-white/80">
-                  <a href="tel:+233246040422" className="hover:text-jsGold">+233 (0)246040422</a>
-                  <a href="tel:+233548119184" className="hover:text-jsGold">+233 (0)548119184</a>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center md:items-end">
-              <a 
-                href="mailto:thejuniorspeller@gmail.com" 
-                className="bg-jsGold text-jsBlue font-black py-4 px-8 rounded-2xl flex items-center gap-2 hover:scale-105 transition-transform active:scale-95 shadow-xl text-xs uppercase tracking-widest mb-4"
-              >
-                <Mail className="w-4 h-4" /> Contact Support
-              </a>
-              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest text-center md:text-right">
-                thejuniorspeller@gmail.com
-              </p>
-            </div>
-          </div>
-
-          <div className="border-t border-white/10 pt-8 flex flex-col items-center gap-6">
-            <div className="flex items-center gap-5">
-              <a href="https://wa.link/j9jjk4" target="_blank" rel="noopener noreferrer" className="p-3 bg-white/5 hover:bg-green-500 rounded-full transition-all group">
-                <MessageCircle className="w-5 h-5 text-white/60 group-hover:text-white" />
-              </a>
-              <a href="https://www.tiktok.com/@juniorspeller?lang=en" target="_blank" rel="noopener noreferrer" className="p-3 bg-white/5 hover:bg-black rounded-full transition-all group">
-                <Music className="w-5 h-5 text-white/60 group-hover:text-white" />
-              </a>
-              <a href="https://twitter.com/SpellerJun53163" target="_blank" rel="noopener noreferrer" className="p-3 bg-white/5 hover:bg-black rounded-full transition-all group">
-                <Twitter className="w-5 h-5 text-white/60 group-hover:text-white" />
-              </a>
-              <a href="https://www.facebook.com/nationaljuniorspeller" target="_blank" rel="noopener noreferrer" className="p-3 bg-white/5 hover:bg-blue-600 rounded-full transition-all group">
-                <Facebook className="w-5 h-5 text-white/60 group-hover:text-white" />
-              </a>
-              <a href="https://www.instagram.com/juniorspeller1/" target="_blank" rel="noopener noreferrer" className="p-3 bg-white/5 hover:bg-pink-600 rounded-full transition-all group">
-                <Instagram className="w-5 h-5 text-white/60 group-hover:text-white" />
-              </a>
-            </div>
-            
-            <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.5em] text-center">
-              © 2024 National Junior Speller Ghana
-            </p>
-          </div>
+      <footer className="w-full py-8 border-t border-slate-100 dark:border-slate-900 text-center space-y-4">
+        <div className="flex justify-center gap-6 text-slate-300 dark:text-slate-700">
+           <a href="#" className="hover:text-jsBlue"><Facebook className="w-5 h-5" /></a>
+           <a href="#" className="hover:text-jsBlue"><Twitter className="w-5 h-5" /></a>
+           <a href="#" className="hover:text-jsBlue"><Instagram className="w-5 h-5" /></a>
+           <a href="#" className="hover:text-jsBlue"><Music className="w-5 h-5" /></a>
         </div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">&copy; 2024 Junior Speller GH. All Rights Reserved.</p>
       </footer>
     </div>
   );

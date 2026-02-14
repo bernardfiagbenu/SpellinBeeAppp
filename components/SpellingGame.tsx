@@ -300,7 +300,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
             <div className="flex flex-col items-center gap-3">
               <button 
                 onClick={() => { resetTranscript(); setUserInput(''); startListening(); }}
-                disabled={isListening || isSpeaking || status === 'JUDGING'}
+                disabled={isListening || isSpeaking}
                 className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center transition-all shadow-2xl border-4 border-white dark:border-slate-800 ${isListening ? 'bg-red-600 text-white animate-pulse ring-8 ring-red-100 dark:ring-red-900/20' : 'bg-jsBlue dark:bg-blue-700 text-white hover:scale-110 active:scale-95'}`}
               >
                 {isListening ? <MicOff className="w-9 h-9 sm:w-10 sm:h-10" /> : <Mic className="w-9 h-9 sm:w-10 sm:h-10" />}
@@ -312,7 +312,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
           )}
 
           {inputMode === 'KEYBOARD' && status === 'IDLE' && (
-            <button onClick={checkSpelling} disabled={!userInput.trim() || status === 'JUDGING'} className="w-full bg-jsBlue dark:bg-blue-700 text-jsGold py-5 sm:py-6 rounded-[1.8rem] sm:rounded-3xl font-black text-[11px] sm:text-xs uppercase tracking-[0.2em] shadow-xl active:scale-[0.98] transition-all disabled:opacity-50">
+            <button onClick={checkSpelling} disabled={!userInput.trim()} className="w-full bg-jsBlue dark:bg-blue-700 text-jsGold py-5 sm:py-6 rounded-[1.8rem] sm:rounded-3xl font-black text-[11px] sm:text-xs uppercase tracking-[0.2em] shadow-xl active:scale-[0.98] transition-all disabled:opacity-50">
               Finalize Answer
             </button>
           )}
