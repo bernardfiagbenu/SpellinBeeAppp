@@ -9,7 +9,7 @@ import { LeaderboardModal } from './components/LeaderboardModal';
 import { wordList } from './data/wordList';
 import { Difficulty, SpellingWord } from './types';
 import { 
-  MapPin, Phone, Mail, MessageCircle, Instagram, 
+  Phone, Mail, MessageCircle, Instagram, 
   Facebook, Twitter, Music, Star
 } from 'lucide-react';
 import { useUserIdentity } from './hooks/useUserIdentity';
@@ -25,8 +25,6 @@ interface SessionConfig {
 }
 
 const beeLevels = [Difficulty.ONE_BEE, Difficulty.TWO_BEE, Difficulty.THREE_BEE];
-const logoUrl = "https://juniorspellergh.com/wp-content/uploads/2024/01/3d-junior-speller-logo-2048x1172.png";
-
 const getWordId = (word: SpellingWord) => `${word.difficulty}:${word.word.toLowerCase()}`;
 
 export default function App() {
@@ -87,7 +85,7 @@ export default function App() {
       if (index !== -1) setUserRank(index + 1);
       else setUserRank('>500');
     } catch (e) {
-      console.debug("Rank sync skipped - Rules or Indexes missing", e);
+      console.debug("Rank sync skipped", e);
     }
   };
 
@@ -103,11 +101,9 @@ export default function App() {
         lastUpdated: new Date().toISOString()
       }, { merge: true });
 
-      if (navigator.onLine) {
-        fetchUserRank();
-      }
+      if (navigator.onLine) fetchUserRank();
     } catch (e) {
-      console.debug("User registration sync failed - Rules missing?", e);
+      console.debug("User registration sync pending...");
     }
   };
 
@@ -132,16 +128,6 @@ export default function App() {
       localStorage.setItem('js_gh_theme', next ? 'dark' : 'light');
       return next;
     });
-  };
-
-  const handleAcceptConsent = () => {
-    setHasConsent(true);
-    localStorage.setItem('js_gh_consent_accepted', 'true');
-  };
-
-  const handleCompleteTutorial = () => {
-    setShowTutorial(false);
-    localStorage.setItem('js_gh_tutorial_viewed', 'true');
   };
 
   useEffect(() => {
@@ -229,7 +215,7 @@ export default function App() {
   if (!appReady) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-300">
+    <div className="min-h-screen bg-white dark:bg-black flex flex-col transition-colors duration-300">
       <Header 
         currentView={currentView}
         onViewChange={setCurrentView}
@@ -241,8 +227,8 @@ export default function App() {
       />
 
       <main className="flex-grow container max-w-5xl mx-auto px-4 py-8 flex flex-col items-center justify-start overflow-hidden">
-        {!hasConsent && <LegalModal onAccept={handleAcceptConsent} />}
-        {showTutorial && <TutorialOverlay onComplete={handleCompleteTutorial} />}
+        {!hasConsent && <LegalModal onAccept={() => setHasConsent(true)} />}
+        {showTutorial && <TutorialOverlay onComplete={() => setShowTutorial(false)} />}
         {showLeaderboard && (
           <LeaderboardModal 
             onClose={() => setShowLeaderboard(false)} 
@@ -255,7 +241,7 @@ export default function App() {
             <div className="flex flex-wrap justify-center gap-2 mb-2">
               <button 
                 onClick={() => setSessionConfig({ difficulty: 'COMPETITION', letter: null })}
-                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === 'COMPETITION' ? 'bg-jsBlue text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-200 dark:border-slate-800'}`}
+                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === 'COMPETITION' ? 'bg-black dark:bg-jsGold text-jsGold dark:text-black shadow-lg scale-110' : 'bg-white dark:bg-zinc-900 text-zinc-400 border border-zinc-200 dark:border-zinc-800'}`}
               >
                 🏆 Grand Finals
               </button>
@@ -263,14 +249,14 @@ export default function App() {
                 <button 
                   key={level}
                   onClick={() => setSessionConfig({ difficulty: level, letter: null })}
-                  className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === level ? 'bg-jsBlue text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-200 dark:border-slate-800'}`}
+                  className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === level ? 'bg-black dark:bg-jsGold text-jsGold dark:text-black shadow-lg' : 'bg-white dark:bg-zinc-900 text-zinc-400 border border-zinc-200 dark:border-zinc-800'}`}
                 >
                   {level}
                 </button>
               ))}
               <button 
                 onClick={() => setSessionConfig({ difficulty: 'STARRED', letter: null })}
-                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === 'STARRED' ? 'bg-jsBlue text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-200 dark:border-slate-800'}`}
+                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === 'STARRED' ? 'bg-black dark:bg-jsGold text-jsGold dark:text-black shadow-lg' : 'bg-white dark:bg-zinc-900 text-zinc-400 border border-zinc-200 dark:border-zinc-800'}`}
               >
                 ⭐ Favorites ({starredWordIds.size})
               </button>
@@ -290,12 +276,12 @@ export default function App() {
                 isCompetition={sessionConfig.difficulty === 'COMPETITION'}
               />
             ) : (
-              <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+              <div className="flex flex-col items-center justify-center py-20 text-zinc-400">
                 <Star className="w-12 h-12 mb-4 opacity-20" />
                 <p className="font-black text-xs uppercase tracking-[0.2em]">No words in this set</p>
                 <button 
                   onClick={() => setSessionConfig({ difficulty: Difficulty.ONE_BEE, letter: null })}
-                  className="mt-4 text-jsBlue font-bold text-xs underline"
+                  className="mt-4 text-black dark:text-jsGold font-bold text-xs underline"
                 >
                   Return to One Bee
                 </button>
@@ -313,14 +299,14 @@ export default function App() {
         )}
       </main>
 
-      <footer className="w-full py-8 border-t border-slate-100 dark:border-slate-900 text-center space-y-4">
-        <div className="flex justify-center gap-6 text-slate-300 dark:text-slate-700">
-           <a href="#" className="hover:text-jsBlue"><Facebook className="w-5 h-5" /></a>
-           <a href="#" className="hover:text-jsBlue"><Twitter className="w-5 h-5" /></a>
-           <a href="#" className="hover:text-jsBlue"><Instagram className="w-5 h-5" /></a>
-           <a href="#" className="hover:text-jsBlue"><Music className="w-5 h-5" /></a>
+      <footer className="w-full py-8 border-t border-zinc-100 dark:border-zinc-900 text-center space-y-4">
+        <div className="flex justify-center gap-6 text-zinc-300 dark:text-zinc-700">
+           <a href="#" className="hover:text-jsGold"><Facebook className="w-5 h-5" /></a>
+           <a href="#" className="hover:text-jsGold"><Twitter className="w-5 h-5" /></a>
+           <a href="#" className="hover:text-jsGold"><Instagram className="w-5 h-5" /></a>
+           <a href="#" className="hover:text-jsGold"><Music className="w-5 h-5" /></a>
         </div>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">&copy; 2024 Junior Speller GH. All Rights Reserved.</p>
+        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">&copy; 2024-2026 Junior Speller GH. All Rights Reserved.</p>
       </footer>
     </div>
   );

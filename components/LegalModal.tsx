@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ShieldCheck, Scale, Info, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Scale, Info } from 'lucide-react';
 import { useElevenLabsSpeech } from '../hooks/useElevenLabsSpeech';
 
 interface LegalModalProps {
@@ -12,26 +12,25 @@ export const LegalModal: React.FC<LegalModalProps> = ({ onAccept }) => {
   const { initAudio } = useElevenLabsSpeech();
 
   const handleAccept = () => {
-    // Warm up the audio engine on the first real user click
     initAudio();
     onAccept();
   };
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] transition-colors border-t-8 border-jsGold">
-        <div className="p-8 flex flex-col items-center bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in">
+      <div className="bg-white dark:bg-zinc-950 w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] transition-colors border-t-8 border-jsGold">
+        <div className="p-8 flex flex-col items-center bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800">
            <img 
             src={logoUrl} 
             alt="Junior Speller Logo" 
             className="h-20 sm:h-24 w-auto mb-4 object-contain"
           />
-          <h2 className="text-xl font-extrabold text-[#003366] dark:text-blue-400 uppercase tracking-tight text-center">Competition Protocol</h2>
+          <h2 className="text-xl font-black text-black dark:text-jsGold uppercase tracking-tight text-center">Competition Protocol</h2>
         </div>
         
-        <div className="p-6 md:p-8 overflow-y-auto space-y-6 text-slate-700 dark:text-slate-300 leading-relaxed text-[13px] sm:text-sm">
-          <section className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
-            <h3 className="flex items-center gap-2 font-black text-[#003366] dark:text-blue-400 mb-2 uppercase text-[10px] tracking-wider">
+        <div className="p-6 md:p-8 overflow-y-auto space-y-6 text-zinc-700 dark:text-zinc-300 leading-relaxed text-[13px] sm:text-sm">
+          <section className="bg-zinc-100 dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800">
+            <h3 className="flex items-center gap-2 font-black text-black dark:text-jsGold mb-2 uppercase text-[10px] tracking-wider">
               <ShieldCheck className="w-4 h-4" /> 1. Anonymous Identity
             </h3>
             <p>
@@ -40,10 +39,10 @@ export const LegalModal: React.FC<LegalModalProps> = ({ onAccept }) => {
           </section>
 
           <section>
-            <h3 className="flex items-center gap-2 font-black text-[#003366] dark:text-blue-400 mb-2 uppercase text-[10px] tracking-wider">
+            <h3 className="flex items-center gap-2 font-black text-black dark:text-jsGold mb-2 uppercase text-[10px] tracking-wider">
               <Scale className="w-4 h-4" /> 2. Fair Play
             </h3>
-            <ul className="list-disc pl-5 space-y-2 opacity-80">
+            <ul className="list-disc pl-5 space-y-2 opacity-80 font-medium">
               <li>External aids are prohibited during active sessions.</li>
               <li>Timer pressure simulates real stage conditions.</li>
               <li>Global rankings are updated based on accuracy and speed.</li>
@@ -51,19 +50,19 @@ export const LegalModal: React.FC<LegalModalProps> = ({ onAccept }) => {
           </section>
 
           <section>
-            <h3 className="flex items-center gap-2 font-black text-[#003366] dark:text-blue-400 mb-2 uppercase text-[10px] tracking-wider">
+            <h3 className="flex items-center gap-2 font-black text-black dark:text-jsGold mb-2 uppercase text-[10px] tracking-wider">
               <Info className="w-4 h-4" /> 3. Voice Logic
             </h3>
-            <p className="opacity-80">
+            <p className="opacity-80 font-medium">
               Voice mode processes audio locally for the fastest response. The Judge is digital and its decision on spellings is based on official Word of Champions data.
             </p>
           </section>
         </div>
 
-        <div className="p-6 md:p-8 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+        <div className="p-6 md:p-8 bg-white dark:bg-zinc-950 border-t border-zinc-100 dark:border-zinc-800">
           <button
             onClick={handleAccept}
-            className="w-full bg-[#003366] dark:bg-blue-700 hover:bg-[#002244] dark:hover:bg-blue-600 text-white font-black py-5 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 active:scale-[0.97] uppercase tracking-widest text-xs sm:text-sm"
+            className="w-full bg-black dark:bg-jsGold text-jsGold dark:text-black font-black py-5 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 active:scale-[0.97] uppercase tracking-widest text-xs sm:text-sm"
           >
             Enter The Competition
           </button>
