@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { BookOpen, Trophy, Sun, Moon, Medal } from 'lucide-react';
+import { BookOpen, Trophy, Sun, Moon, User, MapPin } from 'lucide-react';
+import { UserIdentity, getAvatarStyle, getCountryFlag } from '../hooks/useUserIdentity';
 
 interface HeaderProps {
   currentView?: 'GAME' | 'LIST';
@@ -8,14 +9,26 @@ interface HeaderProps {
   darkMode: boolean;
   onToggleDarkMode: () => void;
   onShowLeaderboard: () => void;
+  identity: UserIdentity | null;
+  userRank: number | string;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentView, onViewChange, darkMode, onToggleDarkMode, onShowLeaderboard }) => {
+export const Header: React.FC<HeaderProps> = ({ 
+  currentView, 
+  onViewChange, 
+  darkMode, 
+  onToggleDarkMode, 
+  onShowLeaderboard,
+  identity,
+  userRank
+}) => {
   const logoUrl = "https://juniorspellergh.com/wp-content/uploads/2024/01/3d-junior-speller-logo-2048x1172.png";
 
   return (
     <header className="w-full bg-white dark:bg-slate-900 border-b-4 border-[#FFD700] py-2 px-3 sm:px-4 shadow-md sticky top-0 z-50 transition-colors duration-300">
-      <div className="max-w-5xl mx-auto flex items-center justify-between">
+      <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
+        
+        {/* Logo Section */}
         <div 
           className="flex items-center cursor-pointer transition-transform hover:scale-105 active:scale-95 shrink-0" 
           onClick={() => onViewChange && onViewChange('GAME')}
@@ -23,20 +36,34 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onViewChange, darkM
           <img 
             src={logoUrl} 
             alt="Junior Speller GH" 
-            className="h-8 md:h-14 w-auto object-contain"
+            className="h-8 md:h-12 w-auto object-contain"
           />
         </div>
-        
-        <div className="flex items-center gap-1.5 sm:gap-4">
-          <button
-            onClick={onShowLeaderboard}
-            className="p-2 sm:p-2.5 rounded-xl bg-jsGold/10 text-jsBlue dark:text-jsGold transition-all hover:bg-jsGold/20 border border-jsGold/20 shadow-sm flex items-center justify-center gap-1.5 active:scale-95"
-            aria-label="View Leaderboard"
-          >
-            <Medal className="w-4 h-4 sm:w-5 sm:h-5 text-jsBlue dark:text-jsGold" />
-            <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Ranks</span>
-          </button>
 
+        {/* User Profile Chip - Desktop & Mobile Friendly */}
+        {identity && (
+          <div 
+            onClick={onShowLeaderboard}
+            className="flex items-center bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-full px-2 py-1 sm:px-3 sm:py-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-all active:scale-95 group shadow-sm overflow-hidden"
+          >
+            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white shrink-0 mr-2 ${getAvatarStyle(identity.avatarSeed)}`}>
+              <User className="w-3 h-3 sm:w-4 sm:h-4" />
+            </div>
+            <div className="flex flex-col min-w-0 mr-2">
+              <span className="text-[9px] sm:text-[10px] font-black text-jsBlue dark:text-blue-300 truncate max-w-[70px] sm:max-w-[120px] uppercase tracking-tight">
+                {identity.username}
+              </span>
+              <div className="flex items-center gap-1">
+                <img src={getCountryFlag(identity.countryCode)} alt={identity.country} className="w-3 h-2 object-cover rounded-[1px]" />
+                <span className="text-[7px] sm:text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                  Rank #{userRank || '--'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             onClick={onToggleDarkMode}
             className="p-2 sm:p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-yellow-400 transition-all hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-center active:scale-95"

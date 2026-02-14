@@ -10,7 +10,7 @@ import { wordList } from './data/wordList';
 import { Difficulty, SpellingWord } from './types';
 import { Shuffle, Hexagon, Trash2, Star, Trophy, BookOpen, Mail } from 'lucide-react';
 import { useUserIdentity } from './hooks/useUserIdentity';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
 
 type ViewState = 'GAME' | 'LIST';
@@ -36,6 +36,7 @@ function App() {
   const [initialIndex, setInitialIndex] = useState(0);
   const [currentView, setCurrentView] = useState<ViewState>('GAME');
   const [darkMode, setDarkMode] = useState(false);
+  const [userRank, setUserRank] = useState<number | string>('--');
   
   const [sessionConfig, setSessionConfig] = useState<SessionConfig>({ 
     difficulty: Difficulty.ONE_BEE, 
@@ -47,9 +48,7 @@ function App() {
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
 
-  // Performance tracking
   const sessionStartTime = useRef<number>(Date.now());
-  const [totalSessionTime, setTotalSessionTime] = useState(0);
 
   useEffect(() => {
     try {
@@ -82,6 +81,25 @@ function App() {
       setLoading(false);
     }
   }, []);
+
+  // Fetch Rank
+  const fetchUserRank = async () => {
+    if (!identity) return;
+    try {
+      const q = query(collection(db, 'leaderboard'), orderBy('score', 'desc'));
+      const snapshot = await getDocs(q);
+      const index = snapshot.docs.findIndex(doc => doc.id === identity.userId);
+      if (index !== -1) {
+        setUserRank(index + 1);
+      }
+    } catch (e) {
+      console.warn("Rank fetch failed", e);
+    }
+  };
+
+  useEffect(() => {
+    if (identity) fetchUserRank();
+  }, [identity, solvedWordIds.size]);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -148,7 +166,6 @@ function App() {
         existingTime = data.timeTaken || 0;
       }
 
-      // Update only if performance improved or just cumulatively for score
       await setDoc(userDocRef, {
         username: identity.username,
         score: Math.max(existingScore, scoreCount),
@@ -156,11 +173,13 @@ function App() {
         streak: Math.max(existingStreak, newStreak),
         avatarSeed: identity.avatarSeed,
         userId: identity.userId,
+        country: identity.country,
+        countryCode: identity.countryCode,
         lastUpdated: Date.now()
       }, { merge: true });
       
-      // Reset local session timer for the next "chunk" of tracking
       sessionStartTime.current = Date.now();
+      fetchUserRank();
     } catch (e) {
       console.warn("Global rank submission failed:", e);
     }
@@ -179,8 +198,7 @@ function App() {
         setBestStreak(newStreak);
         localStorage.setItem('bee_judge_best_streak', newStreak.toString());
       }
-      // Auto-submit milestone
-      if (newStreak % 3 === 0) submitScoreToGlobal(newStreak, newSolvedIds.size);
+      if (newStreak % 2 === 0) submitScoreToGlobal(newStreak, newSolvedIds.size);
       return newStreak;
     });
   };
@@ -217,6 +235,8 @@ function App() {
         darkMode={darkMode}
         onToggleDarkMode={toggleDarkMode}
         onShowLeaderboard={() => setShowLeaderboard(true)}
+        identity={identity}
+        userRank={userRank}
       />
       
       <main className="flex-grow flex flex-col items-center justify-start py-2 sm:py-4 px-3 sm:px-4 w-full max-w-2xl mx-auto overflow-x-hidden">

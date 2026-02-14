@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Trophy, Timer, Flame, Medal, Loader2, User } from 'lucide-react';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-import { getAvatarStyle } from '../hooks/useUserIdentity';
+import { getAvatarStyle, getCountryFlag } from '../hooks/useUserIdentity';
 
 interface LeaderboardEntry {
   username: string;
@@ -12,6 +12,8 @@ interface LeaderboardEntry {
   streak: number;
   avatarSeed: string;
   userId: string;
+  country?: string;
+  countryCode?: string;
 }
 
 interface LeaderboardModalProps {
@@ -74,7 +76,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, cur
               <div className="grid grid-cols-12 px-4 py-2 text-[8px] font-black text-slate-400 uppercase tracking-widest">
                 <div className="col-span-1">#</div>
                 <div className="col-span-5">Speller</div>
-                <div className="col-span-2 text-center">Score</div>
+                <div className="col-span-2 text-center">Words</div>
                 <div className="col-span-2 text-center">Time</div>
                 <div className="col-span-2 text-center">Streak</div>
               </div>
@@ -94,14 +96,22 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, cur
                       index + 1
                     )}
                   </div>
-                  <div className="col-span-5 flex items-center gap-2">
+                  <div className="col-span-5 flex items-center gap-2 overflow-hidden">
                     <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-white shrink-0 ${getAvatarStyle(entry.avatarSeed)}`}>
                       <User className="w-4 h-4" />
                     </div>
-                    <span className="font-bold text-xs truncate max-w-[100px]">{entry.username}</span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-bold text-xs truncate uppercase tracking-tight">{entry.username}</span>
+                      {entry.countryCode && (
+                        <div className="flex items-center gap-1">
+                          <img src={getCountryFlag(entry.countryCode)} alt={entry.country} className="w-2.5 h-1.5" />
+                          <span className="text-[7px] uppercase opacity-60 font-black">{entry.countryCode}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="col-span-2 text-center font-black text-xs text-jsBlue dark:text-blue-400">
-                    <span className={entry.userId === currentUserId ? 'text-white' : ''}>{entry.score}</span>
+                  <div className={`col-span-2 text-center font-black text-xs ${entry.userId === currentUserId ? 'text-white' : 'text-jsBlue dark:text-blue-400'}`}>
+                    {entry.score}
                   </div>
                   <div className="col-span-2 text-center text-[10px] font-medium opacity-60">
                     {Math.floor(entry.timeTaken / 60)}:{(entry.timeTaken % 60).toString().padStart(2, '0')}

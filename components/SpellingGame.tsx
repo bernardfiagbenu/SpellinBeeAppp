@@ -1,10 +1,12 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, HelpCircle, Mic, MicOff, Keyboard, Eye, Timer, ChevronLeft, ChevronRight, Award, RotateCcw, Lightbulb, AlertCircle, Loader2, Star, Flame, Trophy } from 'lucide-react';
+import { Volume2, HelpCircle, Mic, MicOff, Keyboard, Eye, Timer, ChevronLeft, ChevronRight, Award, RotateCcw, Lightbulb, AlertCircle, Loader2, Star, Flame, Trophy, MessageSquare } from 'lucide-react';
 import { SpellingWord } from '../types';
 import { useElevenLabsSpeech } from '../hooks/useElevenLabsSpeech';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { triggerConfetti } from '../utils/confetti';
 import { ProgressBar } from './ProgressBar';
+import { useGeminiJudge } from '../hooks/useGeminiJudge';
 
 interface SpellingGameProps {
   words: SpellingWord[];
@@ -30,12 +32,14 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
   const [inputMode, setInputMode] = useState<'VOICE' | 'KEYBOARD'>('VOICE');
   const [timeLeft, setTimeLeft] = useState(GAME_TIMER_SECONDS);
   const [hintUsed, setHintUsed] = useState(false);
+  const [geminiHint, setGeminiHint] = useState<string | null>(null);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const wasListeningRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const { speak, isSpeaking, stop: stopSpeaking } = useElevenLabsSpeech();
+  const { getSpellingTip } = useGeminiJudge();
   const { isListening, transcript, interimTranscript, startListening, resetTranscript, error: speechError } = useSpeechRecognition();
   
   const currentWord = words[currentIndex];
@@ -56,6 +60,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
     resetTranscript();
     setTimeLeft(GAME_TIMER_SECONDS);
     setHintUsed(false);
+    setGeminiHint(null);
     
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
@@ -91,7 +96,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
     speak(`The word starts with the letter ${firstLetter}.`);
   };
 
-  const checkSpelling = (e?: React.FormEvent) => {
+  const checkSpelling = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!userInput.trim() || status === 'JUDGING' || status === 'CORRECT') return;
 
@@ -100,24 +105,29 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
     const target = currentWord.word.toLowerCase();
     const altTarget = currentWord.altSpelling?.toLowerCase();
 
-    setTimeout(() => {
-      if (cleanedInput === target || cleanedInput === altTarget) {
-        if (timerRef.current) clearInterval(timerRef.current);
-        setStatus('CORRECT');
-        onWordSolved(currentWord);
-        triggerConfetti();
-        
-        if ((streak + 1) % 5 === 0) speak(`Excellent! Streak of ${streak + 1}!`);
-        else speak(`Correct!`);
-        
-        setTimeout(nextWord, 1800);
-      } else {
-        setStatus('WRONG');
-        onStreakReset();
-        setRevealDefinition(true);
-        speak(`Incorrect.`);
-      }
-    }, 400);
+    // Small simulated judge thinking time
+    await new Promise(r => setTimeout(r, 600));
+
+    if (cleanedInput === target || cleanedInput === altTarget) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      setStatus('CORRECT');
+      onWordSolved(currentWord);
+      triggerConfetti();
+      
+      if ((streak + 1) % 5 === 0) speak(`Excellent! Streak of ${streak + 1}!`);
+      else speak(`Correct!`);
+      
+      setTimeout(nextWord, 1800);
+    } else {
+      setStatus('WRONG');
+      onStreakReset();
+      setRevealDefinition(true);
+      speak(`Incorrect.`);
+      
+      // Get AI feedback when they get it wrong
+      const tip = await getSpellingTip(currentWord.word);
+      setGeminiHint(tip);
+    }
   };
 
   useEffect(() => {
@@ -206,9 +216,22 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
             </button>
           </div>
 
-          {revealDefinition && hasDefinition && (
-            <div className="w-full bg-slate-50 dark:bg-slate-800/50 p-4 sm:p-5 rounded-2xl border-l-4 border-jsBlue animate-in fade-in slide-in-from-top-2 max-h-24 overflow-y-auto no-scrollbar">
-              <p className="text-jsBlue dark:text-blue-300 italic serif text-sm leading-relaxed">"{currentWord.definition}"</p>
+          {(revealDefinition || geminiHint) && (
+            <div className="w-full space-y-2 animate-in fade-in slide-in-from-top-2">
+              {revealDefinition && hasDefinition && (
+                <div className="w-full bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border-l-4 border-jsBlue">
+                  <p className="text-jsBlue dark:text-blue-300 italic serif text-sm leading-relaxed">"{currentWord.definition}"</p>
+                </div>
+              )}
+              {geminiHint && (
+                <div className="w-full bg-jsGold/10 dark:bg-jsGold/5 p-4 rounded-2xl border-l-4 border-jsGold flex gap-3">
+                  <MessageSquare className="w-4 h-4 text-jsGold shrink-0 mt-1" />
+                  <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 leading-tight">
+                    <span className="uppercase text-[9px] block mb-1 opacity-60">Judge's Note:</span>
+                    {geminiHint}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -268,7 +291,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
 
           {status === 'WRONG' && (
             <div className="grid grid-cols-2 gap-2 sm:gap-3 animate-in slide-in-from-bottom-2">
-              <button onClick={() => { setStatus('IDLE'); setUserInput(''); }} className="bg-jsBlue text-white py-4 sm:py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95">
+              <button onClick={() => { setStatus('IDLE'); setUserInput(''); setGeminiHint(null); }} className="bg-jsBlue text-white py-4 sm:py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95">
                 Retry
               </button>
               <button onClick={() => { setUserInput(currentWord.word); setStatus('IDLE'); }} className="bg-white dark:bg-slate-800 border-2 border-jsBlue text-jsBlue dark:text-blue-400 py-4 sm:py-5 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 active:scale-95">

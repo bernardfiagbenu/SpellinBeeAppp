@@ -5,12 +5,25 @@ export interface UserIdentity {
   username: string;
   avatarSeed: string;
   userId: string;
+  country: string;
+  countryCode: string;
 }
 
 const GENERATED_NAMES = [
   'WordWizard', 'Speller', 'BeeMaster', 'LexiconLegend', 'AlphaAce', 
   'SpellBound', 'VocalVictor', 'OrthoStar', 'GlintSpeller', 'AzureAce',
-  'GoldGrammar', 'SilentSolver', 'MightyMorpheme', 'EpicEnunciator'
+  'GoldGrammar', 'SilentSolver', 'MightyMorpheme', 'EpicEnunciator',
+  'ChampionSpeller', 'BeeKeepeer', 'VerbVanguard', 'PhonicPilot'
+];
+
+const COUNTRIES = [
+  { name: 'Ghana', code: 'GH' },
+  { name: 'Nigeria', code: 'NG' },
+  { name: 'USA', code: 'US' },
+  { name: 'UK', code: 'GB' },
+  { name: 'South Africa', code: 'ZA' },
+  { name: 'Canada', code: 'CA' },
+  { name: 'Kenya', code: 'KE' }
 ];
 
 export const useUserIdentity = () => {
@@ -22,13 +35,18 @@ export const useUserIdentity = () => {
       setIdentity(JSON.parse(stored));
     } else {
       const randomName = GENERATED_NAMES[Math.floor(Math.random() * GENERATED_NAMES.length)];
+      const randomCountry = COUNTRIES[Math.floor(Math.random() * COUNTRIES.length)];
       const randomId = Math.floor(1000 + Math.random() * 9000);
       const uniqueId = crypto.randomUUID();
+      
       const newIdentity: UserIdentity = {
         username: `${randomName}_${randomId}`,
         avatarSeed: Math.random().toString(36).substring(7),
-        userId: uniqueId
+        userId: uniqueId,
+        country: randomCountry.name,
+        countryCode: randomCountry.code
       };
+      
       localStorage.setItem('bee_user_identity', JSON.stringify(newIdentity));
       setIdentity(newIdentity);
     }
@@ -37,7 +55,6 @@ export const useUserIdentity = () => {
   return identity;
 };
 
-// Simple hash-based avatar generation for UI use
 export const getAvatarStyle = (seed: string) => {
   const colors = [
     'bg-blue-500', 'bg-green-500', 'bg-purple-500', 
@@ -46,4 +63,8 @@ export const getAvatarStyle = (seed: string) => {
   ];
   const index = seed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return colors[index % colors.length];
+};
+
+export const getCountryFlag = (code: string) => {
+  return `https://flagcdn.com/w40/${code.toLowerCase()}.png`;
 };
