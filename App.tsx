@@ -11,7 +11,8 @@ import { wordList } from './data/wordList';
 import { Difficulty, SpellingWord } from './types';
 import { 
   Globe, Facebook, Twitter, Instagram, 
-  Youtube, Music, Star, ExternalLink
+  Youtube, Music, Star, ExternalLink,
+  ChevronUp
 } from 'lucide-react';
 import { useUserIdentity } from './hooks/useUserIdentity';
 import { db } from './firebase';
@@ -223,6 +224,10 @@ export default function App() {
     submitScoreToGlobal(0, solvedWordIds.size);
   };
 
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (!appReady) return null;
 
   return (
@@ -238,7 +243,7 @@ export default function App() {
         userRank={userRank}
       />
 
-      <main className="flex-grow container max-w-5xl mx-auto px-4 py-8 flex flex-col items-center justify-start overflow-hidden">
+      <main className="flex-grow container max-w-5xl mx-auto px-4 py-6 sm:py-8 flex flex-col items-center justify-start">
         {!hasConsent && <LegalModal onAccept={() => { setHasConsent(true); localStorage.setItem('js_gh_consent_accepted', 'true'); }} />}
         {showTutorial && <TutorialOverlay onComplete={() => { setShowTutorial(false); localStorage.setItem('js_gh_tutorial_viewed', 'true'); }} />}
         {showLeaderboard && (
@@ -319,35 +324,50 @@ export default function App() {
         )}
       </main>
 
-      <footer className="w-full py-10 border-t border-zinc-100 dark:border-zinc-900 text-center space-y-6 px-4">
-        <div className="flex justify-center gap-5 text-zinc-400 dark:text-zinc-600">
-           <a href="https://www.facebook.com/JuniorSpellerGH/" target="_blank" rel="noopener noreferrer" className="hover:text-jsGold transition-colors">
-            <Facebook className="w-5 h-5" />
-           </a>
-           <a href="https://twitter.com/juniorspellergh" target="_blank" rel="noopener noreferrer" className="hover:text-jsGold transition-colors">
-            <Twitter className="w-5 h-5" />
-           </a>
-           <a href="https://www.instagram.com/juniorspellergh/" target="_blank" rel="noopener noreferrer" className="hover:text-jsGold transition-colors">
-            <Instagram className="w-5 h-5" />
-           </a>
-           <a href="https://www.tiktok.com/@juniorspellergh" target="_blank" rel="noopener noreferrer" className="hover:text-jsGold transition-colors">
-            <Music className="w-5 h-5" />
-           </a>
-           <a href="https://juniorspellergh.com" target="_blank" rel="noopener noreferrer" className="hover:text-jsGold transition-colors">
-            <Globe className="w-5 h-5" />
-           </a>
-        </div>
-        
-        <div className="space-y-2">
-          <a 
-            href="https://juniorspellergh.com" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-[10px] font-black text-black dark:text-jsGold uppercase tracking-[0.25em] hover:opacity-70 transition-opacity"
+      <footer className="w-full mt-auto bg-zinc-50 dark:bg-zinc-950 border-t-2 border-zinc-100 dark:border-zinc-900 transition-colors">
+        <div className="max-w-5xl mx-auto py-8 sm:py-12 px-6 flex flex-col items-center gap-8">
+          
+          <button 
+            onClick={scrollToTop}
+            className="flex flex-col items-center gap-1 group text-zinc-300 hover:text-jsGold transition-colors"
           >
-            Visit Official Website <ExternalLink className="w-3 h-3" />
-          </a>
-          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">&copy; 2024-2026 Junior Speller Ghana. All Rights Reserved.</p>
+            <ChevronUp className="w-5 h-5 group-hover:-translate-y-1 transition-transform" />
+            <span className="text-[8px] font-black uppercase tracking-[0.3em]">Back to Top</span>
+          </button>
+
+          <div className="flex flex-wrap justify-center gap-6 sm:gap-10 text-zinc-400 dark:text-zinc-600">
+             <a href="https://www.facebook.com/JuniorSpellerGH/" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
+              <Facebook className="w-6 h-6" />
+             </a>
+             <a href="https://twitter.com/juniorspellergh" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
+              <Twitter className="w-6 h-6" />
+             </a>
+             <a href="https://www.instagram.com/juniorspellergh/" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
+              <Instagram className="w-6 h-6" />
+             </a>
+             <a href="https://www.tiktok.com/@juniorspellergh" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
+              <Music className="w-6 h-6" />
+             </a>
+             <a href="https://juniorspellergh.com" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
+              <Globe className="w-6 h-6" />
+             </a>
+          </div>
+          
+          <div className="w-full max-w-md h-px bg-gradient-to-r from-transparent via-zinc-200 dark:via-zinc-800 to-transparent"></div>
+
+          <div className="space-y-3 text-center">
+            <a 
+              href="https://juniorspellergh.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-[10px] font-black text-black dark:text-jsGold uppercase tracking-[0.25em] hover:opacity-70 transition-all border-b border-transparent hover:border-current pb-0.5"
+            >
+              Junior Speller Ghana Official <ExternalLink className="w-3 h-3" />
+            </a>
+            <p className="text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest max-w-[280px] sm:max-w-none leading-loose">
+              &copy; 2024-2026 National Junior Speller. Powered by Word of Champions. All Rights Reserved.
+            </p>
+          </div>
         </div>
       </footer>
     </div>
