@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { ShieldCheck, Scale, Info } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShieldCheck, Scale, Info, Loader2 } from 'lucide-react';
 import { useElevenLabsSpeech } from '../hooks/useElevenLabsSpeech';
 
 interface LegalModalProps {
@@ -8,12 +8,29 @@ interface LegalModalProps {
 }
 
 export const LegalModal: React.FC<LegalModalProps> = ({ onAccept }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
   const logoUrl = "https://juniorspellergh.com/wp-content/uploads/2024/01/3d-junior-speller-logo-2048x1172.png";
   const { initAudio } = useElevenLabsSpeech();
 
   const handleAccept = () => {
-    initAudio();
-    onAccept();
+    if (isProcessing) return;
+    
+    setIsProcessing(true);
+    
+    // We use a small timeout to allow the UI to update to 'Verifying...' state
+    // and to ensure initAudio doesn't block the main thread in a way that
+    // stops the modal from closing.
+    setTimeout(() => {
+      try {
+        initAudio();
+      } catch (e) {
+        console.error("Audio initialization error in LegalModal:", e);
+      } finally {
+        // Crucial: We call onAccept regardless of whether initAudio succeeded
+        // to prevent the user from getting stuck on the screen.
+        onAccept();
+      }
+    }, 100);
   };
 
   return (
@@ -62,9 +79,17 @@ export const LegalModal: React.FC<LegalModalProps> = ({ onAccept }) => {
         <div className="p-6 md:p-8 bg-white dark:bg-zinc-950 border-t border-zinc-100 dark:border-zinc-800">
           <button
             onClick={handleAccept}
-            className="w-full bg-black dark:bg-jsGold text-jsGold dark:text-black font-black py-5 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 active:scale-[0.97] uppercase tracking-widest text-xs sm:text-sm"
+            disabled={isProcessing}
+            className={`w-full bg-black dark:bg-jsGold text-jsGold dark:text-black font-black py-5 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 active:scale-[0.97] uppercase tracking-widest text-xs sm:text-sm ${isProcessing ? 'opacity-80 cursor-wait' : 'cursor-pointer'}`}
           >
-            Enter The Competition
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Verifying Protocol...
+              </>
+            ) : (
+              'Enter The Competition'
+            )}
           </button>
         </div>
       </div>

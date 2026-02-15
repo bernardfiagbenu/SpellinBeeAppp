@@ -18,11 +18,14 @@ export const useElevenLabsSpeech = (customRate: number = 0.85) => {
       activeUtterance.onend = null;
       activeUtterance.onerror = null;
     }
-    window.speechSynthesis.cancel();
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     setIsSpeaking(false);
   }, []);
 
   const getBestVoice = () => {
+    if (!('speechSynthesis' in window)) return null;
     const voices = window.speechSynthesis.getVoices();
     if (!voices || voices.length === 0) return null;
 
@@ -36,8 +39,8 @@ export const useElevenLabsSpeech = (customRate: number = 0.85) => {
   };
 
   const speak = useCallback((text: string, onEnd?: () => void) => {
-    // If the user hasn't interacted with the page yet, speech will fail with "not-allowed".
-    // We don't want to spam warnings for this expected browser behavior.
+    if (!('speechSynthesis' in window)) return;
+
     if (!audioUnlocked && !window.speechSynthesis.speaking) {
       console.debug("Speech deferred: Waiting for user interaction to unlock audio.");
       return;
@@ -89,12 +92,18 @@ export const useElevenLabsSpeech = (customRate: number = 0.85) => {
    * Unlocks the speech synthesis engine. Must be called from a user gesture (e.g. click).
    */
   const initAudio = useCallback(() => {
-    audioUnlocked = true;
-    window.speechSynthesis.getVoices();
-    const silent = new SpeechSynthesisUtterance("");
-    silent.volume = 0;
-    window.speechSynthesis.speak(silent);
-    console.debug("Audio engine unlocked for the Judge.");
+    try {
+      audioUnlocked = true;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.getVoices();
+        const silent = new SpeechSynthesisUtterance("");
+        silent.volume = 0;
+        window.speechSynthesis.speak(silent);
+        console.debug("Audio engine unlocked for the Judge.");
+      }
+    } catch (e) {
+      console.warn("Speech Synthesis Init failed (Safe to ignore if non-speech device):", e);
+    }
   }, []);
 
   return {
