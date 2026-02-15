@@ -345,6 +345,9 @@ export default function App() {
              <a href="https://www.instagram.com/juniorspellergh/" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
               <Instagram className="w-6 h-6" />
              </a>
+             <a href="https://www.youtube.com/@juniorspellergh" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
+              <Youtube className="w-6 h-6" />
+             </a>
              <a href="https://www.tiktok.com/@juniorspellergh" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
               <Music className="w-6 h-6" />
              </a>
@@ -365,7 +368,7 @@ export default function App() {
               Junior Speller Ghana <ExternalLink className="w-3 h-3" />
             </a>
             <p className="text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest leading-loose">
-              &copy; 2024-2026 National Junior Speller. Powered by Word of Champions.
+              &copy; 2026 National Junior Speller. Powered by Word of Champions.
             </p>
           </div>
         </div>
