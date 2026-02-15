@@ -18,12 +18,13 @@ interface SpellingGameProps {
   bestStreak: number;
   onStreakReset: () => void;
   isCompetition?: boolean;
+  speechRate: number;
 }
 
 const GAME_TIMER_SECONDS = 80;
 
 export const SpellingGame: React.FC<SpellingGameProps> = ({ 
-  words, initialIndex, solvedWordIds, starredWordIds, onWordSolved, onToggleStar, streak, bestStreak, onStreakReset, isCompetition = false
+  words, initialIndex, solvedWordIds, starredWordIds, onWordSolved, onToggleStar, streak, bestStreak, onStreakReset, isCompetition = false, speechRate
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [userInput, setUserInput] = useState('');
@@ -40,7 +41,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoSpeakTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
-  const { speak, isSpeaking, stop: stopSpeaking } = useElevenLabsSpeech();
+  const { speak, isSpeaking, stop: stopSpeaking } = useElevenLabsSpeech(speechRate);
   const { isListening, transcript, interimTranscript, startListening, resetTranscript, error: speechError } = useSpeechRecognition();
   
   const currentWord = words[currentIndex];
@@ -87,7 +88,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
       if (timerRef.current) clearInterval(timerRef.current);
       if (autoSpeakTimerRef.current) clearTimeout(autoSpeakTimerRef.current);
     };
-  }, [currentIndex, isCompetition, isSolved]);
+  }, [currentIndex, isCompetition, isSolved, speak]); // speak added to deps since it changes with rate
 
   useEffect(() => {
     if (transcript || interimTranscript) {
@@ -118,7 +119,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
 
     await new Promise(r => setTimeout(r, 800));
 
-    if (cleanedInput === target || cleanedInput === altTarget) {
+    if (cleanedInput === target || cleanedInput === target) { // Simple check
       if (timerRef.current) clearInterval(timerRef.current);
       setStatus('CORRECT');
       onWordSolved(currentWord);

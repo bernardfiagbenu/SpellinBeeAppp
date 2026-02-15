@@ -6,6 +6,7 @@ import { WordListView } from './components/WordListView';
 import { LegalModal } from './components/LegalModal';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { LeaderboardModal } from './components/LeaderboardModal';
+import { SettingsModal } from './components/SettingsModal';
 import { wordList } from './data/wordList';
 import { Difficulty, SpellingWord } from './types';
 import { 
@@ -33,9 +34,11 @@ export default function App() {
   const [hasConsent, setHasConsent] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [currentView, setCurrentView] = useState<ViewState>('GAME');
   const [darkMode, setDarkMode] = useState(false);
   const [userRank, setUserRank] = useState<number | string>('--');
+  const [speechRate, setSpeechRate] = useState(0.85);
   
   const [sessionConfig, setSessionConfig] = useState<SessionConfig>({ 
     difficulty: Difficulty.ONE_BEE, 
@@ -55,6 +58,9 @@ export default function App() {
       setHasConsent(localStorage.getItem('js_gh_consent_accepted') === 'true');
       setDarkMode(localStorage.getItem('js_gh_theme') === 'dark');
       
+      const rate = localStorage.getItem('js_gh_speech_rate');
+      if (rate) setSpeechRate(parseFloat(rate));
+
       const solved = localStorage.getItem('bee_judge_solved_ids');
       if (solved) setSolvedWordIds(new Set(JSON.parse(solved)));
 
@@ -128,6 +134,11 @@ export default function App() {
       localStorage.setItem('js_gh_theme', next ? 'dark' : 'light');
       return next;
     });
+  };
+
+  const handleRateChange = (rate: number) => {
+    setSpeechRate(rate);
+    localStorage.setItem('js_gh_speech_rate', rate.toString());
   };
 
   useEffect(() => {
@@ -222,6 +233,7 @@ export default function App() {
         darkMode={darkMode}
         onToggleDarkMode={toggleDarkMode}
         onShowLeaderboard={() => setShowLeaderboard(true)}
+        onShowSettings={() => setShowSettings(true)}
         identity={identity}
         userRank={userRank}
       />
@@ -233,6 +245,13 @@ export default function App() {
           <LeaderboardModal 
             onClose={() => setShowLeaderboard(false)} 
             currentUserId={identity?.userId} 
+          />
+        )}
+        {showSettings && (
+          <SettingsModal 
+            onClose={() => setShowSettings(false)} 
+            rate={speechRate}
+            onRateChange={handleRateChange}
           />
         )}
 
@@ -274,6 +293,7 @@ export default function App() {
                 bestStreak={bestStreak}
                 onStreakReset={handleStreakReset}
                 isCompetition={sessionConfig.difficulty === 'COMPETITION'}
+                speechRate={speechRate}
               />
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-zinc-400">

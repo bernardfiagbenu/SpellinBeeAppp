@@ -59,13 +59,17 @@ export const useUserIdentity = () => {
   // Fetch Country by IP
   useEffect(() => {
     const detectLocation = async () => {
-      // Only fetch if country hasn't been set by IP yet or if it's the default
-      // We check a flag to avoid repeated lookups if it's already "verified"
       const isVerified = localStorage.getItem('bee_identity_verified') === 'true';
-      if (isVerified) return;
+      if (isVerified || !navigator.onLine) return;
 
       try {
-        const response = await fetch('https://ipapi.co/json/');
+        // Using a timeout to prevent long-hanging fetches if ipapi is blocked
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+        const response = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
         const data = await response.json();
         
         if (data && data.country_name && data.country_code) {
@@ -82,7 +86,9 @@ export const useUserIdentity = () => {
           });
         }
       } catch (e) {
-        console.warn("Location detection failed, using defaults", e);
+        // Silently fail location detection - we'll stick with defaults
+        console.debug("Location sync deferred: likely due to ad-blocker or network policy.");
+        localStorage.setItem('bee_identity_verified', 'true'); // Mark as "tried" to avoid repeated failures
       }
     };
 

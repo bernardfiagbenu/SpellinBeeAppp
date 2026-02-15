@@ -1,35 +1,31 @@
+
 import { useState, useCallback, useRef, useEffect } from 'react';
+
+let activeUtterance: SpeechSynthesisUtterance | null = null;
+let audioUnlocked = false;
 
 /**
  * useElevenLabsSpeech (Native Edition)
  * Provides a high-reliability "Judge" voice using the browser's built-in speech engine.
+ * @param customRate - Optional initial speech rate (default 0.85)
  */
-export const useElevenLabsSpeech = () => {
+export const useElevenLabsSpeech = (customRate: number = 0.85) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isGenerating] = useState(false); // No longer needed for native, kept for compat
-  const voicesLoadedRef = useRef(false);
-
-  // Pre-load voices for snappier response
-  useEffect(() => {
-    const loadVoices = () => {
-      window.speechSynthesis.getVoices();
-      voicesLoadedRef.current = true;
-    };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-    };
-  }, []);
+  const [isGenerating] = useState(false); 
 
   const stop = useCallback(() => {
+    if (activeUtterance) {
+      activeUtterance.onend = null;
+      activeUtterance.onerror = null;
+    }
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
   }, []);
 
   const getBestVoice = () => {
     const voices = window.speechSynthesis.getVoices();
-    // Priority list for clarity: Google US, Microsoft David, any US English
+    if (!voices || voices.length === 0) return null;
+
     return (
       voices.find(v => v.name.includes('Google') && v.lang.includes('en-US')) ||
       voices.find(v => v.name.includes('David')) ||
@@ -40,36 +36,65 @@ export const useElevenLabsSpeech = () => {
   };
 
   const speak = useCallback((text: string, onEnd?: () => void) => {
+    // If the user hasn't interacted with the page yet, speech will fail with "not-allowed".
+    // We don't want to spam warnings for this expected browser behavior.
+    if (!audioUnlocked && !window.speechSynthesis.speaking) {
+      console.debug("Speech deferred: Waiting for user interaction to unlock audio.");
+      return;
+    }
+
     stop();
     
-    // Create the "Judge" persona
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = getBestVoice();
-    utterance.rate = 0.85; // Slightly slower for spelling clarity
+    const selectedVoice = getBestVoice();
+    
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+
+    utterance.rate = customRate;
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
 
-    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+    };
+
     utterance.onend = () => {
       setIsSpeaking(false);
+      activeUtterance = null;
       if (onEnd) onEnd();
     };
-    utterance.onerror = (e) => {
-      console.error("Speech error:", e);
+
+    utterance.onerror = (event) => {
+      if (event.error === 'not-allowed') {
+        console.debug("Judge Voice: Playback not allowed yet (user gesture required).");
+      } else if (event.error !== 'interrupted') {
+        console.warn("Judge Voice Notice:", event.error);
+      }
       setIsSpeaking(false);
+      activeUtterance = null;
       if (onEnd) onEnd();
     };
 
+    activeUtterance = utterance;
     window.speechSynthesis.speak(utterance);
-  }, [stop]);
 
-  // Compatibility method for the LegalModal warm-up
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+  }, [stop, customRate]);
+
+  /**
+   * Unlocks the speech synthesis engine. Must be called from a user gesture (e.g. click).
+   */
   const initAudio = useCallback(() => {
+    audioUnlocked = true;
     window.speechSynthesis.getVoices();
-    // On some browsers, speaking a silent string "unlocks" the audio
     const silent = new SpeechSynthesisUtterance("");
     silent.volume = 0;
     window.speechSynthesis.speak(silent);
+    console.debug("Audio engine unlocked for the Judge.");
   }, []);
 
   return {

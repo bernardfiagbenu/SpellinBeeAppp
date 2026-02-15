@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BookOpen, Trophy, Sun, Moon, User, Loader2 } from 'lucide-react';
+import { BookOpen, Trophy, Sun, Moon, User, Loader2, Settings } from 'lucide-react';
 import { UserIdentity, getAvatarStyle, getCountryFlag } from '../hooks/useUserIdentity';
 
 interface HeaderProps {
@@ -9,6 +9,7 @@ interface HeaderProps {
   darkMode: boolean;
   onToggleDarkMode: () => void;
   onShowLeaderboard: () => void;
+  onShowSettings: () => void;
   identity: UserIdentity | null;
   userRank: number | string;
 }
@@ -19,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   darkMode, 
   onToggleDarkMode, 
   onShowLeaderboard,
+  onShowSettings,
   identity,
   userRank
 }) => {
@@ -43,22 +45,22 @@ export const Header: React.FC<HeaderProps> = ({
           {identity ? (
             <div 
               onClick={onShowLeaderboard}
-              className="flex items-center bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-full px-2 py-1 sm:px-4 sm:py-2 cursor-pointer hover:bg-white dark:hover:bg-zinc-800 transition-all active:scale-95 shadow-sm min-w-0 max-w-[120px] sm:max-w-[200px]"
+              className="flex items-center bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-full px-2 py-1 sm:px-3 sm:py-2 cursor-pointer hover:bg-white dark:hover:bg-zinc-800 transition-all active:scale-95 shadow-sm min-w-0 max-w-[140px] sm:max-w-[220px]"
             >
-              <div className={`w-6 h-6 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white shrink-0 mr-1 sm:mr-3 ${getAvatarStyle(identity.avatarSeed)}`}>
-                <User className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+              <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white shrink-0 mr-1.5 sm:mr-2.5 ${getAvatarStyle(identity.avatarSeed)}`}>
+                <User className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5" />
               </div>
               <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
-                <span className="text-[9px] sm:text-[11px] font-black text-black dark:text-jsGold truncate tracking-tight uppercase">
+                <span className="text-[9px] sm:text-[11px] font-black text-black dark:text-white truncate tracking-tight uppercase leading-none mb-0.5">
                   {identity.username}
                 </span>
                 <div className="flex items-center gap-1">
                   <img 
                     src={getCountryFlag(identity.countryCode)} 
                     alt={identity.country} 
-                    className="w-3 h-2 sm:w-4 sm:h-2.5 object-cover rounded-[1px] shadow-sm" 
+                    className="w-3 h-2 sm:w-3.5 sm:h-2.5 object-cover rounded-[1px] shadow-sm" 
                   />
-                  <span className="text-[7px] sm:text-[9px] font-bold text-zinc-400 dark:text-zinc-300 uppercase tracking-widest whitespace-nowrap">
+                  <span className="text-[7px] sm:text-[9px] font-bold text-zinc-400 dark:text-jsGold uppercase tracking-widest whitespace-nowrap">
                     #{userRank || '--'}
                   </span>
                 </div>
@@ -73,6 +75,14 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
         
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <button
+            onClick={onShowSettings}
+            className="p-1.5 sm:p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-jsGold transition-all hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-100 dark:border-zinc-800 shadow-sm flex items-center justify-center active:scale-95"
+            aria-label="Settings"
+          >
+            <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+
           <button
             onClick={onToggleDarkMode}
             className="p-1.5 sm:p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-jsGold transition-all hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-100 dark:border-zinc-800 shadow-sm flex items-center justify-center active:scale-95"
@@ -92,15 +102,16 @@ export const Header: React.FC<HeaderProps> = ({
                   onClick={() => onViewChange('LIST')}
                   className="bg-black dark:bg-jsGold text-jsGold dark:text-black px-2 py-2 sm:px-4 rounded-xl font-bold text-[8px] sm:text-xs flex items-center gap-1 sm:gap-2 hover:opacity-90 transition-all shadow-sm active:scale-95"
                 >
-                  <BookOpen className="w-3 h-3 sm:w-4 sm:h-4 text-jsGold dark:text-black" />
-                  <span className="uppercase tracking-widest">Archives</span>
+                  <BookOpen className="w-3 h-3 sm:w-4 h-4" />
+                  <span className="uppercase tracking-widest hidden sm:inline">Archives</span>
+                  <span className="uppercase tracking-widest sm:hidden">Words</span>
                 </button>
               ) : (
                 <button
                   onClick={() => onViewChange('GAME')}
                   className="bg-jsGold text-black px-2 py-2 sm:px-4 rounded-xl font-bold text-[8px] sm:text-xs flex items-center gap-1 sm:gap-2 hover:bg-yellow-400 transition-all shadow-sm border-2 border-black active:scale-95"
                 >
-                  <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <Trophy className="w-3 h-3 sm:w-4 h-4" />
                   <span className="uppercase tracking-widest">Stage</span>
                 </button>
               )}
