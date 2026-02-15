@@ -243,7 +243,7 @@ export default function App() {
         userRank={userRank}
       />
 
-      <main className="flex-grow container max-w-5xl mx-auto px-4 py-6 sm:py-8 flex flex-col items-center justify-start">
+      <main className="flex-grow container max-w-5xl mx-auto px-4 py-4 sm:py-8 flex flex-col items-center justify-start">
         {!hasConsent && <LegalModal onAccept={() => { setHasConsent(true); localStorage.setItem('js_gh_consent_accepted', 'true'); }} />}
         {showTutorial && <TutorialOverlay onComplete={() => { setShowTutorial(false); localStorage.setItem('js_gh_tutorial_viewed', 'true'); }} />}
         {showLeaderboard && (
@@ -324,15 +324,15 @@ export default function App() {
         )}
       </main>
 
-      <footer className="w-full mt-auto bg-zinc-50 dark:bg-zinc-950 border-t-2 border-zinc-100 dark:border-zinc-900 transition-colors">
-        <div className="max-w-5xl mx-auto py-8 sm:py-12 px-6 flex flex-col items-center gap-8">
+      <footer className="w-full mt-auto bg-zinc-50 dark:bg-zinc-950 border-t-4 border-black dark:border-jsGold transition-colors">
+        <div className="max-w-5xl mx-auto py-8 px-6 flex flex-col items-center gap-6">
           
           <button 
             onClick={scrollToTop}
             className="flex flex-col items-center gap-1 group text-zinc-300 hover:text-jsGold transition-colors"
           >
             <ChevronUp className="w-5 h-5 group-hover:-translate-y-1 transition-transform" />
-            <span className="text-[8px] font-black uppercase tracking-[0.3em]">Back to Top</span>
+            <span className="text-[8px] font-black uppercase tracking-[0.3em]">Top</span>
           </button>
 
           <div className="flex flex-wrap justify-center gap-6 sm:gap-10 text-zinc-400 dark:text-zinc-600">
@@ -355,17 +355,17 @@ export default function App() {
           
           <div className="w-full max-w-md h-px bg-gradient-to-r from-transparent via-zinc-200 dark:via-zinc-800 to-transparent"></div>
 
-          <div className="space-y-3 text-center">
+          <div className="space-y-2 text-center pb-4">
             <a 
               href="https://juniorspellergh.com" 
               target="_blank" 
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-[10px] font-black text-black dark:text-jsGold uppercase tracking-[0.25em] hover:opacity-70 transition-all border-b border-transparent hover:border-current pb-0.5"
             >
-              Junior Speller Ghana Official <ExternalLink className="w-3 h-3" />
+              Junior Speller Ghana <ExternalLink className="w-3 h-3" />
             </a>
-            <p className="text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest max-w-[280px] sm:max-w-none leading-loose">
-              &copy; 2024-2026 National Junior Speller. Powered by Word of Champions. All Rights Reserved.
+            <p className="text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest leading-loose">
+              &copy; 2024-2026 National Junior Speller. Powered by Word of Champions.
             </p>
           </div>
         </div>

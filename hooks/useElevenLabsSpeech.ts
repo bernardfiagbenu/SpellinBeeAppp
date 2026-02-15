@@ -2,18 +2,17 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 
 let activeUtterance: SpeechSynthesisUtterance | null = null;
-let audioUnlocked = false;
 let resumeInterval: any = null;
 
 /**
  * useElevenLabsSpeech (Native Edition)
- * Optimized for Android WebViews (Median.co/GoNative/APK wrappers).
+ * Specifically hardened for Android WebView (Median.co/GoNative).
  */
 export const useElevenLabsSpeech = (customRate: number = 0.85) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isGenerating] = useState(false); 
 
-  // Aggressively load voices for Android
+  // Aggressive voice loading for APKs
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       const loadVoices = () => {
@@ -26,13 +25,12 @@ export const useElevenLabsSpeech = (customRate: number = 0.85) => {
 
   const startHeartbeat = useCallback(() => {
     if (resumeInterval) clearInterval(resumeInterval);
-    // Android WebViews aggressively pause TTS to save power. 
-    // This recursive resume keeps the engine "hot" during longer words.
+    // Recursive resume to keep the engine active in WebView
     resumeInterval = setInterval(() => {
       if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
         window.speechSynthesis.resume();
       }
-    }, 1000); // 1s is more aggressive than 5s to ensure no dropouts
+    }, 1000); 
   }, []);
 
   const stopHeartbeat = useCallback(() => {
@@ -47,7 +45,6 @@ export const useElevenLabsSpeech = (customRate: number = 0.85) => {
     if (activeUtterance) {
       activeUtterance.onend = null;
       activeUtterance.onerror = null;
-      activeUtterance.onstart = null;
     }
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -75,7 +72,6 @@ export const useElevenLabsSpeech = (customRate: number = 0.85) => {
       return;
     }
 
-    // Full reset before each speech call
     stop();
     
     const utterance = new SpeechSynthesisUtterance(text);
@@ -103,7 +99,6 @@ export const useElevenLabsSpeech = (customRate: number = 0.85) => {
 
     utterance.onerror = (event) => {
       stopHeartbeat();
-      // 'interrupted' is expected if we call stop() or speak() again
       if (event.error !== 'interrupted' && event.error !== 'not-allowed') {
         console.warn("Judge Voice (Native) Notice:", event.error);
       }
@@ -114,25 +109,29 @@ export const useElevenLabsSpeech = (customRate: number = 0.85) => {
 
     activeUtterance = utterance;
     
-    // Some Android WebView versions need an explicit resume after speak
     window.speechSynthesis.speak(utterance);
+    // Critical: Resume immediately for Android
     window.speechSynthesis.resume();
   }, [stop, customRate, startHeartbeat, stopHeartbeat]);
 
   const initAudio = useCallback(() => {
     try {
-      audioUnlocked = true;
       if ('speechSynthesis' in window) {
+        // 1. Play a tiny silent MP3 to warm up Android Audio Session
+        // This is often required by WebView wrappers to allow any TTS/Audio
+        const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==');
+        silentAudio.play().catch(() => {});
+        
+        // 2. Warm up TTS engine
         window.speechSynthesis.getVoices();
-        // Fire a zero-volume wake-up call to unlock audio context in WebView
         const silent = new SpeechSynthesisUtterance(" ");
         silent.volume = 0;
         window.speechSynthesis.speak(silent);
         window.speechSynthesis.resume();
-        console.debug("Judge: Audio Context Handshake Successful.");
+        console.debug("Judge: Audio Channel Primed.");
       }
     } catch (e) {
-      console.warn("Speech Init Handshake failed:", e);
+      console.warn("Speech Warmup failed:", e);
     }
   }, []);
 
