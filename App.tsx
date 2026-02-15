@@ -10,8 +10,8 @@ import { SettingsModal } from './components/SettingsModal';
 import { wordList } from './data/wordList';
 import { Difficulty, SpellingWord } from './types';
 import { 
-  Phone, Mail, MessageCircle, Instagram, 
-  Facebook, Twitter, Music, Star
+  Globe, Facebook, Twitter, Instagram, 
+  Youtube, Music, Star, ExternalLink
 } from 'lucide-react';
 import { useUserIdentity } from './hooks/useUserIdentity';
 import { db } from './firebase';
@@ -239,8 +239,8 @@ export default function App() {
       />
 
       <main className="flex-grow container max-w-5xl mx-auto px-4 py-8 flex flex-col items-center justify-start overflow-hidden">
-        {!hasConsent && <LegalModal onAccept={() => setHasConsent(true)} />}
-        {showTutorial && <TutorialOverlay onComplete={() => setShowTutorial(false)} />}
+        {!hasConsent && <LegalModal onAccept={() => { setHasConsent(true); localStorage.setItem('js_gh_consent_accepted', 'true'); }} />}
+        {showTutorial && <TutorialOverlay onComplete={() => { setShowTutorial(false); localStorage.setItem('js_gh_tutorial_viewed', 'true'); }} />}
         {showLeaderboard && (
           <LeaderboardModal 
             onClose={() => setShowLeaderboard(false)} 
@@ -319,14 +319,36 @@ export default function App() {
         )}
       </main>
 
-      <footer className="w-full py-8 border-t border-zinc-100 dark:border-zinc-900 text-center space-y-4">
-        <div className="flex justify-center gap-6 text-zinc-300 dark:text-zinc-700">
-           <a href="#" className="hover:text-jsGold"><Facebook className="w-5 h-5" /></a>
-           <a href="#" className="hover:text-jsGold"><Twitter className="w-5 h-5" /></a>
-           <a href="#" className="hover:text-jsGold"><Instagram className="w-5 h-5" /></a>
-           <a href="#" className="hover:text-jsGold"><Music className="w-5 h-5" /></a>
+      <footer className="w-full py-10 border-t border-zinc-100 dark:border-zinc-900 text-center space-y-6 px-4">
+        <div className="flex justify-center gap-5 text-zinc-400 dark:text-zinc-600">
+           <a href="https://www.facebook.com/JuniorSpellerGH/" target="_blank" rel="noopener noreferrer" className="hover:text-jsGold transition-colors">
+            <Facebook className="w-5 h-5" />
+           </a>
+           <a href="https://twitter.com/juniorspellergh" target="_blank" rel="noopener noreferrer" className="hover:text-jsGold transition-colors">
+            <Twitter className="w-5 h-5" />
+           </a>
+           <a href="https://www.instagram.com/juniorspellergh/" target="_blank" rel="noopener noreferrer" className="hover:text-jsGold transition-colors">
+            <Instagram className="w-5 h-5" />
+           </a>
+           <a href="https://www.tiktok.com/@juniorspellergh" target="_blank" rel="noopener noreferrer" className="hover:text-jsGold transition-colors">
+            <Music className="w-5 h-5" />
+           </a>
+           <a href="https://juniorspellergh.com" target="_blank" rel="noopener noreferrer" className="hover:text-jsGold transition-colors">
+            <Globe className="w-5 h-5" />
+           </a>
         </div>
-        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">&copy; 2024-2026 Junior Speller GH. All Rights Reserved.</p>
+        
+        <div className="space-y-2">
+          <a 
+            href="https://juniorspellergh.com" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-[10px] font-black text-black dark:text-jsGold uppercase tracking-[0.25em] hover:opacity-70 transition-opacity"
+          >
+            Visit Official Website <ExternalLink className="w-3 h-3" />
+          </a>
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">&copy; 2024-2026 Junior Speller Ghana. All Rights Reserved.</p>
+        </div>
       </footer>
     </div>
   );

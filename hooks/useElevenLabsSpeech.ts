@@ -3,26 +3,57 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 
 let activeUtterance: SpeechSynthesisUtterance | null = null;
 let audioUnlocked = false;
+let resumeInterval: any = null;
 
 /**
  * useElevenLabsSpeech (Native Edition)
- * Provides a high-reliability "Judge" voice using the browser's built-in speech engine.
- * @param customRate - Optional initial speech rate (default 0.85)
+ * Optimized for Android WebViews (Median.co/GoNative/APK wrappers).
  */
 export const useElevenLabsSpeech = (customRate: number = 0.85) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isGenerating] = useState(false); 
 
+  // Aggressively load voices for Android
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const loadVoices = () => {
+        window.speechSynthesis.getVoices();
+      };
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+      loadVoices();
+    }
+  }, []);
+
+  const startHeartbeat = useCallback(() => {
+    if (resumeInterval) clearInterval(resumeInterval);
+    // Android WebViews aggressively pause TTS to save power. 
+    // This recursive resume keeps the engine "hot" during longer words.
+    resumeInterval = setInterval(() => {
+      if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+        window.speechSynthesis.resume();
+      }
+    }, 1000); // 1s is more aggressive than 5s to ensure no dropouts
+  }, []);
+
+  const stopHeartbeat = useCallback(() => {
+    if (resumeInterval) {
+      clearInterval(resumeInterval);
+      resumeInterval = null;
+    }
+  }, []);
+
   const stop = useCallback(() => {
+    stopHeartbeat();
     if (activeUtterance) {
       activeUtterance.onend = null;
       activeUtterance.onerror = null;
+      activeUtterance.onstart = null;
     }
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
     setIsSpeaking(false);
-  }, []);
+  }, [stopHeartbeat]);
 
   const getBestVoice = () => {
     if (!('speechSynthesis' in window)) return null;
@@ -39,13 +70,12 @@ export const useElevenLabsSpeech = (customRate: number = 0.85) => {
   };
 
   const speak = useCallback((text: string, onEnd?: () => void) => {
-    if (!('speechSynthesis' in window)) return;
-
-    if (!audioUnlocked && !window.speechSynthesis.speaking) {
-      console.debug("Speech deferred: Waiting for user interaction to unlock audio.");
+    if (!('speechSynthesis' in window)) {
+      if (onEnd) onEnd();
       return;
     }
 
+    // Full reset before each speech call
     stop();
     
     const utterance = new SpeechSynthesisUtterance(text);
@@ -61,19 +91,21 @@ export const useElevenLabsSpeech = (customRate: number = 0.85) => {
 
     utterance.onstart = () => {
       setIsSpeaking(true);
+      startHeartbeat();
     };
 
     utterance.onend = () => {
       setIsSpeaking(false);
+      stopHeartbeat();
       activeUtterance = null;
       if (onEnd) onEnd();
     };
 
     utterance.onerror = (event) => {
-      if (event.error === 'not-allowed') {
-        console.debug("Judge Voice: Playback not allowed yet (user gesture required).");
-      } else if (event.error !== 'interrupted') {
-        console.warn("Judge Voice Notice:", event.error);
+      stopHeartbeat();
+      // 'interrupted' is expected if we call stop() or speak() again
+      if (event.error !== 'interrupted' && event.error !== 'not-allowed') {
+        console.warn("Judge Voice (Native) Notice:", event.error);
       }
       setIsSpeaking(false);
       activeUtterance = null;
@@ -81,28 +113,26 @@ export const useElevenLabsSpeech = (customRate: number = 0.85) => {
     };
 
     activeUtterance = utterance;
+    
+    // Some Android WebView versions need an explicit resume after speak
     window.speechSynthesis.speak(utterance);
+    window.speechSynthesis.resume();
+  }, [stop, customRate, startHeartbeat, stopHeartbeat]);
 
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-    }
-  }, [stop, customRate]);
-
-  /**
-   * Unlocks the speech synthesis engine. Must be called from a user gesture (e.g. click).
-   */
   const initAudio = useCallback(() => {
     try {
       audioUnlocked = true;
       if ('speechSynthesis' in window) {
         window.speechSynthesis.getVoices();
-        const silent = new SpeechSynthesisUtterance("");
+        // Fire a zero-volume wake-up call to unlock audio context in WebView
+        const silent = new SpeechSynthesisUtterance(" ");
         silent.volume = 0;
         window.speechSynthesis.speak(silent);
-        console.debug("Audio engine unlocked for the Judge.");
+        window.speechSynthesis.resume();
+        console.debug("Judge: Audio Context Handshake Successful.");
       }
     } catch (e) {
-      console.warn("Speech Synthesis Init failed (Safe to ignore if non-speech device):", e);
+      console.warn("Speech Init Handshake failed:", e);
     }
   }, []);
 
