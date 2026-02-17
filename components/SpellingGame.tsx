@@ -21,7 +21,7 @@ interface SpellingGameProps {
   speechRate: number;
 }
 
-const GAME_TIMER_SECONDS = 120; // Increased to 120s for better large-scale usability
+const GAME_TIMER_SECONDS = 120; 
 
 export const SpellingGame: React.FC<SpellingGameProps> = ({ 
   words, initialIndex, solvedWordIds, starredWordIds, onWordSolved, onToggleStar, streak, bestStreak, onStreakReset, isCompetition = false, speechRate
@@ -40,14 +40,18 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoSpeakTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
+  // Ref to track which words have auto-pronounced in this specific session
+  const sessionHeardIds = useRef<Set<string>>(new Set());
+  
   const { speak, isSpeaking, stop: stopSpeaking } = useElevenLabsSpeech(speechRate);
   const { isListening, transcript, interimTranscript, startListening, stopListening, resetTranscript, error: speechError } = useSpeechRecognition();
   
   const currentWord = words[currentIndex];
   const isLastWord = currentIndex === words.length - 1;
   const isFirstWord = currentIndex === 0;
-  const isSolved = solvedWordIds.has(`${currentWord.difficulty}:${currentWord.word.toLowerCase()}`);
-  const isStarred = starredWordIds.has(`${currentWord.difficulty}:${currentWord.word.toLowerCase()}`);
+  const wordKey = `${currentWord.difficulty}:${currentWord.word.toLowerCase()}`;
+  const isSolved = solvedWordIds.has(wordKey);
+  const isStarred = starredWordIds.has(wordKey);
 
   useEffect(() => {
     setCurrentIndex(initialIndex);
@@ -73,12 +77,17 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
       });
     }, 1000);
 
-    if (!isSolved && !hasFailedCurrentAttempt.current) {
+    // AUTO-PRONUNCIATION LOGIC
+    // play if word is NOT solved, hasn't been failed yet this turn, 
+    // AND has not been auto-pronounced in this current browser session.
+    if (!isSolved && !hasFailedCurrentAttempt.current && !sessionHeardIds.current.has(wordKey)) {
         if (autoSpeakTimerRef.current) clearTimeout(autoSpeakTimerRef.current);
         autoSpeakTimerRef.current = setTimeout(() => {
             const prompt = isCompetition ? `The word is ${currentWord.word}.` : currentWord.word;
             speak(prompt);
-        }, 1200);
+            // Mark as heard so it doesn't repeat automatically if the user swipes back/forth
+            sessionHeardIds.current.add(wordKey);
+        }, 800); 
     }
 
     return () => {
@@ -86,7 +95,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
       if (autoSpeakTimerRef.current) clearTimeout(autoSpeakTimerRef.current);
       stopSpeaking();
     };
-  }, [currentIndex, isCompetition, isSolved, speak, stopSpeaking]);
+  }, [currentIndex, isCompetition, isSolved, speak, stopSpeaking, wordKey]);
 
   useEffect(() => {
     if (transcript || interimTranscript) {
@@ -114,7 +123,6 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
     const cleanedInput = userInput.trim().toLowerCase();
     const target = currentWord.word.toLowerCase();
 
-    // Small delay to simulate "The Judge" thinking
     await new Promise(r => setTimeout(r, 600));
 
     if (cleanedInput === target) {
@@ -127,7 +135,8 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
       const randomPraise = praises[Math.floor(Math.random() * praises.length)];
       speak(randomPraise);
       
-      setTimeout(nextWord, 1600);
+      // Moving to next word will automatically trigger the Pronunciation effect
+      setTimeout(nextWord, 1800);
     } else {
       setStatus('WRONG');
       hasFailedCurrentAttempt.current = true;
@@ -203,10 +212,11 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
               className={`w-20 h-20 sm:w-32 sm:h-32 bg-black dark:bg-jsGold text-jsGold dark:text-black rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-zinc-800 transform transition-all active:scale-90 ${isSpeaking ? 'ring-8 ring-jsGold/20 scale-105' : 'hover:scale-105'} disabled:opacity-50 relative`}
             >
               <Volume2 className={`w-8 h-8 sm:w-16 sm:h-16 ${isSpeaking ? 'animate-pulse' : ''}`} />
-              <div className="absolute -bottom-1 -right-1 bg-jsGold dark:bg-white text-black p-1 sm:p-1.5 rounded-lg shadow-md border-2 border-white dark:border-zinc-800">
-                 <Gavel className="w-3.5 h-3.5 sm:w-4 h-4" />
+              <div className="absolute -bottom-1 -right-1 bg-jsGold dark:bg-white text-black p-1.5 rounded-lg shadow-md border-2 border-white dark:border-zinc-800">
+                 <Gavel className="w-4 h-4" />
               </div>
             </button>
+            <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase text-zinc-400 tracking-widest whitespace-nowrap">Pronounce</span>
           </div>
           
           <div className="flex gap-2 w-full max-w-[280px]">

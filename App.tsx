@@ -53,6 +53,7 @@ export default function App() {
   const [initialIndex, setInitialIndex] = useState(0);
 
   const sessionStartTime = useRef<number>(Date.now());
+  const prevDifficulty = useRef<SessionDifficulty | null>(null);
 
   useEffect(() => {
     try {
@@ -162,12 +163,15 @@ export default function App() {
 
     setActiveWordList(words);
     
-    if (difficulty === 'COMPETITION') {
+    // Bookmark Resume Logic:
+    // Only update the initial starting index if the level selection changes.
+    // This looks for the first unsolved word in the newly selected active list.
+    if (difficulty !== prevDifficulty.current) {
       const firstUnsolved = words.findIndex(w => !solvedWordIds.has(getWordId(w)));
       setInitialIndex(firstUnsolved !== -1 ? firstUnsolved : 0);
-    } else {
-      setInitialIndex(0);
+      prevDifficulty.current = difficulty;
     }
+    
   }, [sessionConfig, starredWordIds, solvedWordIds]);
 
   const submitScoreToGlobal = async (newStreak: number, scoreCount: number) => {
