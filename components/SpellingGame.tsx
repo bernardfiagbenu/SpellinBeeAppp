@@ -78,16 +78,15 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
     }, 1000);
 
     // AUTO-PRONUNCIATION LOGIC
-    // play if word is NOT solved, hasn't been failed yet this turn, 
-    // AND has not been auto-pronounced in this current browser session.
+    // 1. Only play if word hasn't been heard in this browser session.
+    // 2. Suppress if the user just failed an attempt (waiting for manual click).
     if (!isSolved && !hasFailedCurrentAttempt.current && !sessionHeardIds.current.has(wordKey)) {
         if (autoSpeakTimerRef.current) clearTimeout(autoSpeakTimerRef.current);
         autoSpeakTimerRef.current = setTimeout(() => {
             const prompt = isCompetition ? `The word is ${currentWord.word}.` : currentWord.word;
             speak(prompt);
-            // Mark as heard so it doesn't repeat automatically if the user swipes back/forth
             sessionHeardIds.current.add(wordKey);
-        }, 800); 
+        }, 1000); 
     }
 
     return () => {
@@ -216,7 +215,7 @@ export const SpellingGame: React.FC<SpellingGameProps> = ({
                  <Gavel className="w-4 h-4" />
               </div>
             </button>
-            <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase text-zinc-400 tracking-widest whitespace-nowrap">Pronounce</span>
+            <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase text-zinc-400 tracking-widest whitespace-nowrap">Pronounce</span>
           </div>
           
           <div className="flex gap-2 w-full max-w-[280px]">

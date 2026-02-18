@@ -163,9 +163,7 @@ export default function App() {
 
     setActiveWordList(words);
     
-    // Bookmark Resume Logic:
-    // Only update the initial starting index if the level selection changes.
-    // This looks for the first unsolved word in the newly selected active list.
+    // Level Resumption: Find the first word in this level the user hasn't solved yet.
     if (difficulty !== prevDifficulty.current) {
       const firstUnsolved = words.findIndex(w => !solvedWordIds.has(getWordId(w)));
       setInitialIndex(firstUnsolved !== -1 ? firstUnsolved : 0);
@@ -178,6 +176,7 @@ export default function App() {
     if (!db || !identity) return;
     const timeElapsed = Math.floor((Date.now() - sessionStartTime.current) / 1000);
     try {
+      // Use setDoc with merge: true to ensure cumulative scores are updated correctly
       await setDoc(doc(db, 'leaderboard', identity.userId), {
         userId: identity.userId,
         score: scoreCount,
@@ -194,22 +193,28 @@ export default function App() {
 
   const handleWordSolved = (word: SpellingWord) => {
     const id = getWordId(word);
+    
+    // Use functional update to ensure we calculate score based on actual growth
     setSolvedWordIds(prev => {
+      const alreadySolved = prev.has(id);
       const next = new Set(prev);
       next.add(id);
+      
       localStorage.setItem('bee_judge_solved_ids', JSON.stringify(Array.from(next)));
+
+      // If this is a new word for the user, update the global leaderboard
+      const newStreak = streak + 1;
+      setStreak(newStreak);
+      if (newStreak > bestStreak) {
+        setBestStreak(newStreak);
+        localStorage.setItem('bee_judge_best_streak', newStreak.toString());
+      }
+
+      // Total solved count across all levels is the speller's rank score
+      submitScoreToGlobal(newStreak, next.size);
+      
       return next;
     });
-
-    const newStreak = streak + 1;
-    setStreak(newStreak);
-    if (newStreak > bestStreak) {
-      setBestStreak(newStreak);
-      localStorage.setItem('bee_judge_best_streak', newStreak.toString());
-    }
-
-    const solvedCount = solvedWordIds.size + 1;
-    submitScoreToGlobal(newStreak, solvedCount);
   };
 
   const handleToggleStar = (word: SpellingWord) => {
@@ -225,6 +230,7 @@ export default function App() {
 
   const handleStreakReset = () => {
     setStreak(0);
+    // Refresh rank with latest score but 0 streak
     submitScoreToGlobal(0, solvedWordIds.size);
   };
 
