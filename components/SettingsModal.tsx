@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { X, Settings, Volume2, FastForward } from 'lucide-react';
-import { useElevenLabsSpeech } from '../hooks/useElevenLabsSpeech';
+import { useSpeech } from '../hooks/useSpeech';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -10,7 +10,7 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, rate, onRateChange }) => {
-  const { speak, isSpeaking } = useElevenLabsSpeech(rate);
+  const { speak, isSpeaking } = useSpeech();
 
   const handleTest = () => {
     speak("The Judge's voice is now set to this speed.");

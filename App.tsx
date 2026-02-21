@@ -6,17 +6,18 @@ import { WordListView } from './components/WordListView';
 import { LegalModal } from './components/LegalModal';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { LeaderboardModal } from './components/LeaderboardModal';
+import { GradeSelectionModal } from './components/GradeSelectionModal';
 import { SettingsModal } from './components/SettingsModal';
 import { wordList } from './data/wordList';
 import { Difficulty, SpellingWord } from './types';
 import { 
   Globe, Facebook, Twitter, Instagram, 
   Youtube, Music, Star, ExternalLink,
-  ChevronUp
+  ChevronUp, MessageCircle
 } from 'lucide-react';
 import { useUserIdentity } from './hooks/useUserIdentity';
 import { db } from './firebase';
-import { doc, setDoc, getDocs, collection, query, orderBy, limit } from 'firebase/firestore';
+import { doc, setDoc, getDocs, collection, query, orderBy, limit, where } from 'firebase/firestore';
 
 type ViewState = 'GAME' | 'LIST';
 type SessionDifficulty = Difficulty | 'ALL' | 'STARRED' | 'COMPETITION';
@@ -26,7 +27,6 @@ interface SessionConfig {
   letter: string | null;
 }
 
-const beeLevels = [Difficulty.ONE_BEE, Difficulty.TWO_BEE, Difficulty.THREE_BEE];
 const getWordId = (word: SpellingWord) => `${word.difficulty}:${word.word.toLowerCase()}`;
 
 export default function App() {
@@ -40,9 +40,11 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [userRank, setUserRank] = useState<number | string>('--');
   const [speechRate, setSpeechRate] = useState(0.85);
+  const [randomMode, setRandomMode] = useState(false);
+  const [userGrade, setUserGrade] = useState<Difficulty | null>(null);
   
   const [sessionConfig, setSessionConfig] = useState<SessionConfig>({ 
-    difficulty: Difficulty.ONE_BEE, 
+    difficulty: Difficulty.GRADE_2_4, 
     letter: null 
   });
   const [activeWordList, setActiveWordList] = useState<SpellingWord[]>([]);
@@ -51,6 +53,7 @@ export default function App() {
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [initialIndex, setInitialIndex] = useState(0);
+  const [userInteracted, setUserInteracted] = useState(false);
 
   const sessionStartTime = useRef<number>(Date.now());
   const prevDifficulty = useRef<SessionDifficulty | null>(null);
@@ -62,6 +65,12 @@ export default function App() {
       
       const rate = localStorage.getItem('js_gh_speech_rate');
       if (rate) setSpeechRate(parseFloat(rate));
+
+      const grade = localStorage.getItem('js_gh_user_grade');
+      if (grade) {
+        setUserGrade(grade as Difficulty);
+        setSessionConfig(prev => ({ ...prev, difficulty: grade as Difficulty }));
+      }
 
       const solved = localStorage.getItem('bee_judge_solved_ids');
       if (solved) setSolvedWordIds(new Set(JSON.parse(solved)));
@@ -80,10 +89,13 @@ export default function App() {
   }, []);
 
   const fetchUserRank = async () => {
-    if (!db || !identity || !navigator.onLine) return;
+    if (!db || !identity || !navigator.onLine || !userGrade) return;
     try {
+      // Note: This query requires a composite index on [grade, score]. 
+      // If it fails, it might be due to missing index.
       const q = query(
         collection(db, 'leaderboard'),
+        where('grade', '==', userGrade),
         orderBy('score', 'desc'),
         limit(500)
       );
@@ -98,7 +110,7 @@ export default function App() {
   };
 
   const registerUserInDB = async () => {
-    if (!db || !identity) return;
+    if (!db || !identity || !userGrade) return;
     try {
       await setDoc(doc(db, 'leaderboard', identity.userId), {
         userId: identity.userId,
@@ -106,6 +118,7 @@ export default function App() {
         avatarSeed: identity.avatarSeed,
         country: identity.country,
         countryCode: identity.countryCode,
+        grade: userGrade,
         lastUpdated: new Date().toISOString()
       }, { merge: true });
 
@@ -116,14 +129,15 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (appReady && hasConsent && identity) {
+    if (appReady && hasConsent && identity && userGrade) {
       registerUserInDB();
       if (localStorage.getItem('js_gh_tutorial_viewed') !== 'true') {
         setShowTutorial(true);
       }
     }
-  }, [appReady, hasConsent, identity]);
+  }, [appReady, hasConsent, identity, userGrade]);
 
+  // ... (darkMode effect)
   useEffect(() => {
     const html = document.documentElement;
     if (darkMode) html.classList.add('dark');
@@ -143,45 +157,57 @@ export default function App() {
     localStorage.setItem('js_gh_speech_rate', rate.toString());
   };
 
+  const handleGradeSelect = (grade: Difficulty) => {
+    setUserGrade(grade);
+    localStorage.setItem('js_gh_user_grade', grade);
+    setSessionConfig({ difficulty: grade, letter: null });
+  };
+
   useEffect(() => {
     let words: SpellingWord[] = [];
     const { difficulty, letter } = sessionConfig;
 
-    if (difficulty === 'ALL') {
-      words = [...wordList];
-    } else if (difficulty === 'STARRED') {
-      words = wordList.filter(w => starredWordIds.has(getWordId(w)));
-    } else if (difficulty === 'COMPETITION') {
-      words = [...wordList];
+    // Force difficulty to match userGrade if set, unless viewing favorites
+    const effectiveDifficulty = (difficulty === 'STARRED' || difficulty === 'ALL') ? difficulty : (userGrade || difficulty);
+
+    if (effectiveDifficulty === 'ALL') {
+      // Filter ALL by userGrade to keep them separated
+      words = wordList.filter(w => w.difficulty === userGrade);
+    } else if (effectiveDifficulty === 'STARRED') {
+      words = wordList.filter(w => starredWordIds.has(getWordId(w)) && w.difficulty === userGrade);
     } else {
-      words = wordList.filter(w => w.difficulty === difficulty);
+      words = wordList.filter(w => w.difficulty === effectiveDifficulty);
     }
 
-    if (letter && difficulty !== 'COMPETITION') {
+    if (letter) {
       words = words.filter(w => w.word.toLowerCase().startsWith(letter.toLowerCase()));
+    }
+
+    if (randomMode) {
+      words = [...words].sort(() => Math.random() - 0.5);
     }
 
     setActiveWordList(words);
     
-    // Level Resumption: Find the first word in this level the user hasn't solved yet.
-    if (difficulty !== prevDifficulty.current) {
+    // Level Resumption
+    if (effectiveDifficulty !== prevDifficulty.current) {
       const firstUnsolved = words.findIndex(w => !solvedWordIds.has(getWordId(w)));
       setInitialIndex(firstUnsolved !== -1 ? firstUnsolved : 0);
-      prevDifficulty.current = difficulty;
+      prevDifficulty.current = effectiveDifficulty;
     }
     
-  }, [sessionConfig, starredWordIds, solvedWordIds]);
+  }, [sessionConfig, starredWordIds, solvedWordIds, randomMode, userGrade]);
 
   const submitScoreToGlobal = async (newStreak: number, scoreCount: number) => {
-    if (!db || !identity) return;
+    if (!db || !identity || !userGrade) return;
     const timeElapsed = Math.floor((Date.now() - sessionStartTime.current) / 1000);
     try {
-      // Use setDoc with merge: true to ensure cumulative scores are updated correctly
       await setDoc(doc(db, 'leaderboard', identity.userId), {
         userId: identity.userId,
         score: scoreCount,
         timeTaken: timeElapsed, 
         streak: newStreak,
+        grade: userGrade,
         lastUpdated: new Date().toISOString()
       }, { merge: true });
         
@@ -194,27 +220,33 @@ export default function App() {
   const handleWordSolved = (word: SpellingWord) => {
     const id = getWordId(word);
     
-    // Use functional update to ensure we calculate score based on actual growth
-    setSolvedWordIds(prev => {
-      const alreadySolved = prev.has(id);
-      const next = new Set(prev);
-      next.add(id);
-      
-      localStorage.setItem('bee_judge_solved_ids', JSON.stringify(Array.from(next)));
-
-      // If this is a new word for the user, update the global leaderboard
+    // Check if it's already solved before updating state to avoid redundant updates
+    if (solvedWordIds.has(id)) {
       const newStreak = streak + 1;
       setStreak(newStreak);
       if (newStreak > bestStreak) {
         setBestStreak(newStreak);
         localStorage.setItem('bee_judge_best_streak', newStreak.toString());
       }
+      submitScoreToGlobal(newStreak, solvedWordIds.size);
+      return;
+    }
 
-      // Total solved count across all levels is the speller's rank score
-      submitScoreToGlobal(newStreak, next.size);
-      
-      return next;
-    });
+    const nextSolvedIds = new Set(solvedWordIds);
+    nextSolvedIds.add(id);
+    
+    setSolvedWordIds(nextSolvedIds);
+    localStorage.setItem('bee_judge_solved_ids', JSON.stringify(Array.from(nextSolvedIds)));
+
+    const newStreak = streak + 1;
+    setStreak(newStreak);
+    if (newStreak > bestStreak) {
+      setBestStreak(newStreak);
+      localStorage.setItem('bee_judge_best_streak', newStreak.toString());
+    }
+
+    // Crucially submit the correct, up-to-date total size of unique solved words
+    submitScoreToGlobal(newStreak, nextSolvedIds.size);
   };
 
   const handleToggleStar = (word: SpellingWord) => {
@@ -230,7 +262,6 @@ export default function App() {
 
   const handleStreakReset = () => {
     setStreak(0);
-    // Refresh rank with latest score but 0 streak
     submitScoreToGlobal(0, solvedWordIds.size);
   };
 
@@ -238,10 +269,16 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  if (!appReady) return null;
+  const handleInteraction = () => {
+    if (!userInteracted) {
+      setUserInteracted(true);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black flex flex-col transition-colors duration-300">
+    <div className="min-h-screen bg-white dark:bg-black flex flex-col transition-colors duration-300" onClick={handleInteraction}>
+      {!userGrade && <GradeSelectionModal onSelect={handleGradeSelect} />}
+      
       <Header 
         currentView={currentView}
         onViewChange={setCurrentView}
@@ -260,6 +297,7 @@ export default function App() {
           <LeaderboardModal 
             onClose={() => setShowLeaderboard(false)} 
             currentUserId={identity?.userId} 
+            userGrade={userGrade}
           />
         )}
         {showSettings && (
@@ -274,26 +312,38 @@ export default function App() {
           <div className="w-full flex flex-col gap-6">
             <div className="flex flex-wrap justify-center gap-2 mb-2">
               <button 
-                onClick={() => setSessionConfig({ difficulty: 'COMPETITION', letter: null })}
-                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === 'COMPETITION' ? 'bg-black dark:bg-jsGold text-jsGold dark:text-black shadow-lg scale-110' : 'bg-white dark:bg-zinc-900 text-zinc-400 border border-zinc-200 dark:border-zinc-800'}`}
+                onClick={() => setRandomMode(prev => !prev)}
+                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${randomMode ? 'bg-black dark:bg-jsGold text-jsGold dark:text-black shadow-lg scale-110' : 'bg-white dark:bg-zinc-900 text-zinc-400 border border-zinc-200 dark:border-zinc-800'}`}
               >
-                🏆 Grand Finals
+                🎲 Random {randomMode ? 'ON' : 'OFF'}
               </button>
-              {beeLevels.map(level => (
+              
+              {/* Only show the selected grade button */}
+              {userGrade && (
                 <button 
-                  key={level}
-                  onClick={() => setSessionConfig({ difficulty: level, letter: null })}
-                  className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === level ? 'bg-black dark:bg-jsGold text-jsGold dark:text-black shadow-lg' : 'bg-white dark:bg-zinc-900 text-zinc-400 border border-zinc-200 dark:border-zinc-800'}`}
+                  onClick={() => setSessionConfig({ difficulty: userGrade, letter: null })}
+                  className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === userGrade ? 'bg-black dark:bg-jsGold text-jsGold dark:text-black shadow-lg' : 'bg-white dark:bg-zinc-900 text-zinc-400 border border-zinc-200 dark:border-zinc-800'}`}
                 >
-                  {level}
+                  {userGrade}
                 </button>
-              ))}
+              )}
+
               <button 
                 onClick={() => setSessionConfig({ difficulty: 'STARRED', letter: null })}
                 className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${sessionConfig.difficulty === 'STARRED' ? 'bg-black dark:bg-jsGold text-jsGold dark:text-black shadow-lg' : 'bg-white dark:bg-zinc-900 text-zinc-400 border border-zinc-200 dark:border-zinc-800'}`}
               >
                 ⭐ Favorites ({starredWordIds.size})
               </button>
+            </div>
+
+            <div className="flex flex-col items-center gap-2 mb-4">
+              <h1 className="text-sm font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-widest flex items-center gap-2">
+                Now Practicing: 
+                <span className="text-black dark:text-jsGold">
+                  {sessionConfig.difficulty === 'STARRED' ? 'Favorites' : sessionConfig.difficulty} 
+                </span>
+                {randomMode && <span className="text-black dark:text-jsGold">🎲</span>}
+              </h1>
             </div>
 
             {activeWordList.length > 0 ? (
@@ -307,18 +357,24 @@ export default function App() {
                 streak={streak}
                 bestStreak={bestStreak}
                 onStreakReset={handleStreakReset}
-                isCompetition={sessionConfig.difficulty === 'COMPETITION'}
+                isCompetition={randomMode}
                 speechRate={speechRate}
+                userInteracted={userInteracted}
               />
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-zinc-400">
                 <Star className="w-12 h-12 mb-4 opacity-20" />
-                <p className="font-black text-xs uppercase tracking-[0.2em]">No words in this set</p>
+                <p className="font-black text-xs uppercase tracking-[0.2em]">
+                  {sessionConfig.difficulty === 'STARRED' ? 'No Favorites Yet' : 'No Words in this Set'}
+                </p>
+                {sessionConfig.difficulty === 'STARRED' && (
+                  <p className="text-center text-xs text-zinc-500 mt-2">Click the star icon on a word to add it here.</p>
+                )}
                 <button 
-                  onClick={() => setSessionConfig({ difficulty: Difficulty.ONE_BEE, letter: null })}
+                  onClick={() => setSessionConfig({ difficulty: userGrade || Difficulty.GRADE_2_4, letter: null })}
                   className="mt-4 text-black dark:text-jsGold font-bold text-xs underline"
                 >
-                  Return to One Bee
+                  Return to {userGrade || 'Grade 2-4'}
                 </button>
               </div>
             )}
@@ -330,6 +386,7 @@ export default function App() {
             solvedWordIds={solvedWordIds}
             starredWordIds={starredWordIds}
             onToggleStar={handleToggleStar}
+            userGrade={userGrade}
           />
         )}
       </main>
@@ -346,23 +403,23 @@ export default function App() {
           </button>
 
           <div className="flex flex-wrap justify-center gap-6 sm:gap-10 text-zinc-400 dark:text-zinc-600">
-             <a href="https://www.facebook.com/JuniorSpellerGH/" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
+             <a href="https://www.facebook.com/nationaljuniorspeller" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
               <Facebook className="w-6 h-6" />
              </a>
-             <a href="https://twitter.com/juniorspellergh" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
+             <a href="https://twitter.com/SpellerJun53163" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
               <Twitter className="w-6 h-6" />
              </a>
-             <a href="https://www.instagram.com/juniorspellergh/" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
+             <a href="https://www.instagram.com/juniorspeller1/" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
               <Instagram className="w-6 h-6" />
              </a>
-             <a href="https://www.youtube.com/@juniorspellergh" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
+             <a href="https://www.youtube.com/@juniorspellertv/videos" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
               <Youtube className="w-6 h-6" />
              </a>
-             <a href="https://www.tiktok.com/@juniorspellergh" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
+             <a href="https://www.tiktok.com/@juniorspeller?lang=en" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
               <Music className="w-6 h-6" />
              </a>
-             <a href="https://juniorspellergh.com" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
-              <Globe className="w-6 h-6" />
+             <a href="https://wa.link/j9jjk4" target="_blank" rel="noopener noreferrer" className="hover:text-black dark:hover:text-jsGold transition-all transform hover:scale-125">
+              <MessageCircle className="w-6 h-6" />
              </a>
           </div>
           

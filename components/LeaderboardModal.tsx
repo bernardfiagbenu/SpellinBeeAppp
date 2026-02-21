@@ -2,8 +2,9 @@
 import React, { useEffect, useState } from 'react';
 import { X, Trophy, Flame, Medal, Loader2, User, AlertTriangle } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import { getAvatarStyle, getCountryFlag } from '../hooks/useUserIdentity';
+import { Difficulty } from '../types';
 
 interface LeaderboardEntry {
   username: string;
@@ -14,14 +15,16 @@ interface LeaderboardEntry {
   userId: string;
   country?: string;
   countryCode?: string;
+  grade?: string;
 }
 
 interface LeaderboardModalProps {
   onClose: () => void;
   currentUserId?: string;
+  userGrade?: Difficulty | null;
 }
 
-export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, currentUserId }) => {
+export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, currentUserId, userGrade }) => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,26 +34,56 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, cur
       try {
         if (!db) return;
         
-        const q = query(
-          collection(db, 'leaderboard'),
-          orderBy('score', 'desc'),
-          limit(100)
-        );
+        let q;
+        // Try to filter by grade if available
+        if (userGrade) {
+           // Note: This requires a composite index. If it fails, we'll catch it and fallback.
+           q = query(
+            collection(db, 'leaderboard'),
+            where('grade', '==', userGrade),
+            orderBy('score', 'desc'),
+            limit(100)
+          );
+        } else {
+           q = query(
+            collection(db, 'leaderboard'),
+            orderBy('score', 'desc'),
+            limit(100)
+          );
+        }
         
-        const snapshot = await getDocs(q);
-        const data = snapshot.docs.map(doc => ({
-          userId: doc.id,
-          ...doc.data()
-        })) as LeaderboardEntry[];
-        
-        setEntries(data);
+        try {
+          const snapshot = await getDocs(q);
+          const data = snapshot.docs.map(doc => ({
+            userId: doc.id,
+            ...(doc.data() as object)
+          })) as LeaderboardEntry[];
+          setEntries(data);
+        } catch (innerError: any) {
+          // Fallback for missing index: fetch all (limit 500) and filter client-side
+          console.warn("Index missing or query failed, falling back to client-side filter", innerError);
+          const fallbackQ = query(
+            collection(db, 'leaderboard'),
+            orderBy('score', 'desc'),
+            limit(500)
+          );
+          const snapshot = await getDocs(fallbackQ);
+          let data = snapshot.docs.map(doc => ({
+            userId: doc.id,
+            ...(doc.data() as object)
+          })) as LeaderboardEntry[];
+          
+          if (userGrade) {
+            data = data.filter(entry => entry.grade === userGrade);
+          }
+          setEntries(data.slice(0, 100));
+        }
+
         setError(null);
       } catch (e: any) {
         console.error("Firestore Error:", e);
         if (e.message?.includes('permission')) {
           setError("PERMISSION_ERROR");
-        } else if (e.message?.includes('index')) {
-          setError("INDEX_ERROR");
         } else {
           setError("GENERAL_ERROR");
         }
@@ -59,7 +92,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, cur
       }
     };
     fetchLeaderboard();
-  }, []);
+  }, [userGrade]);
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in">
@@ -71,7 +104,9 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, cur
             </div>
             <div>
               <h2 className="text-xl font-black text-black dark:text-jsGold uppercase tracking-tight">Global Ranks</h2>
-              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Elite Spellers Only</p>
+              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                {userGrade ? `${userGrade} Elite Spellers` : 'Elite Spellers Only'}
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 text-zinc-400 hover:text-black dark:hover:text-jsGold transition-colors">

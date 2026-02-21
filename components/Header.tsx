@@ -2,6 +2,7 @@
 import React from 'react';
 import { BookOpen, Trophy, Sun, Moon, User, Loader2, Settings } from 'lucide-react';
 import { UserIdentity, getAvatarStyle, getCountryFlag } from '../hooks/useUserIdentity';
+import { playUISound } from '../utils/audioUtils';
 
 interface HeaderProps {
   currentView?: 'GAME' | 'LIST';
@@ -26,13 +27,33 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const logoUrl = "https://juniorspellergh.com/wp-content/uploads/2024/01/3d-junior-speller-logo-2048x1172.png";
 
+  const handleNav = (view: 'GAME' | 'LIST') => {
+    playUISound('pop');
+    if (onViewChange) onViewChange(view);
+  };
+
+  const handleTheme = () => {
+    playUISound('click');
+    onToggleDarkMode();
+  };
+
+  const handleLeaderboard = () => {
+    playUISound('pop');
+    onShowLeaderboard();
+  };
+
+  const handleSettings = () => {
+    playUISound('click');
+    onShowSettings();
+  };
+
   return (
     <header className="w-full bg-white dark:bg-zinc-950 border-b-4 border-jsGold py-2 px-2 sm:px-4 shadow-md sticky top-0 z-50 transition-colors duration-300">
       <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
         
         <div 
           className="flex items-center cursor-pointer transition-transform hover:scale-105 active:scale-95 shrink-0" 
-          onClick={() => onViewChange && onViewChange('GAME')}
+          onClick={() => handleNav('GAME')}
         >
           <img 
             src={logoUrl} 
@@ -44,7 +65,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex-1 flex justify-center min-w-0">
           {identity ? (
             <div 
-              onClick={onShowLeaderboard}
+              onClick={handleLeaderboard}
               className="flex items-center bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-full px-2 py-1 sm:px-3 sm:py-2 cursor-pointer hover:bg-white dark:hover:bg-zinc-800 transition-all active:scale-95 shadow-sm min-w-0 max-w-[140px] sm:max-w-[220px]"
             >
               <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white shrink-0 mr-1.5 sm:mr-2.5 ${getAvatarStyle(identity.avatarSeed)}`}>
@@ -76,7 +97,7 @@ export const Header: React.FC<HeaderProps> = ({
         
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
-            onClick={onShowSettings}
+            onClick={handleSettings}
             className="p-1.5 sm:p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-jsGold transition-all hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-100 dark:border-zinc-800 shadow-sm flex items-center justify-center active:scale-95"
             aria-label="Settings"
           >
@@ -84,7 +105,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <button
-            onClick={onToggleDarkMode}
+            onClick={handleTheme}
             className="p-1.5 sm:p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-jsGold transition-all hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-100 dark:border-zinc-800 shadow-sm flex items-center justify-center active:scale-95"
             aria-label="Toggle Night Mode"
           >
@@ -99,7 +120,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex items-center gap-1 sm:gap-2">
               {currentView === 'GAME' ? (
                 <button
-                  onClick={() => onViewChange('LIST')}
+                  onClick={() => handleNav('LIST')}
                   className="bg-black dark:bg-jsGold text-jsGold dark:text-black px-2 py-2 sm:px-4 rounded-xl font-bold text-[8px] sm:text-xs flex items-center gap-1 sm:gap-2 hover:opacity-90 transition-all shadow-sm active:scale-95"
                 >
                   <BookOpen className="w-3 h-3 sm:w-4 h-4" />
@@ -108,7 +129,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               ) : (
                 <button
-                  onClick={() => onViewChange('GAME')}
+                  onClick={() => handleNav('GAME')}
                   className="bg-jsGold text-black px-2 py-2 sm:px-4 rounded-xl font-bold text-[8px] sm:text-xs flex items-center gap-1 sm:gap-2 hover:bg-yellow-400 transition-all shadow-sm border-2 border-black active:scale-95"
                 >
                   <Trophy className="w-3 h-3 sm:w-4 h-4" />
