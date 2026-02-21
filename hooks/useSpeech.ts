@@ -1,5 +1,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { AUDIO_BASE_URL, USE_REMOTE_AUDIO } from '../constants';
 
 export const useSpeech = (speechRate = 1) => {
     const [isSpeaking, setIsSpeaking] = useState(false);
@@ -18,7 +19,13 @@ export const useSpeech = (speechRate = 1) => {
         
         // Clean the word for the filename (lowercase, no spaces)
         const fileName = text.toLowerCase().trim().replace(/\s+/g, '_');
-        const audioPath = `/audio/${fileName}.mp3`;
+        
+        let audioPath = `/audio/${fileName}.mp3`;
+        if (USE_REMOTE_AUDIO && AUDIO_BASE_URL) {
+            // Ensure trailing slash on base URL
+            const baseUrl = AUDIO_BASE_URL.endsWith('/') ? AUDIO_BASE_URL : `${AUDIO_BASE_URL}/`;
+            audioPath = `${baseUrl}${fileName}.mp3`;
+        }
         
         const audio = new Audio(audioPath);
         audio.playbackRate = speechRate;
@@ -44,10 +51,11 @@ export const useSpeech = (speechRate = 1) => {
 
         audio.play().catch(err => {
             console.error("Playback failed", err);
+            // If play fails (e.g. not allowed), try TTS immediately as fallback
             if (audio.onerror) audio.onerror(new Event('error'));
         });
 
-    }, [stop]);
+    }, [stop, speechRate]);
 
     const flexibleSpeak = useCallback((text: string, rateOrOnEnd?: number | (() => void), onEnd?: () => void) => {
         let endCallback: (() => void) | undefined;
